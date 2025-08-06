@@ -1,50 +1,162 @@
 import React from 'react';
-import { StyleSheet, Text, View, SafeAreaView } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
+import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 
+// Import screens
+import KentekenCheckScreen from './src/screens/KentekenCheckScreen';
+import BpmCheckScreen from './src/screens/BpmCheckScreen';
+import BijtellingCheckScreen from './src/screens/BijtellingCheckScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
+
+const Tab = createBottomTabNavigator();
+const Stack = createStackNavigator();
+
+// Settings button component for header
+const SettingsButton = ({ navigation }) => {
+  const { colors } = useTheme();
+  
+  return (
+    <TouchableOpacity
+      style={styles.settingsButton}
+      onPress={() => navigation.navigate('Settings')}
+    >
+      <Text style={[styles.settingsIcon, { color: colors.text }]}>⚙️</Text>
+    </TouchableOpacity>
+  );
+};
+
+// Tab navigator
+const TabNavigator = () => {
+  const { colors } = useTheme();
+
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'KentekenCheck') {
+            iconName = '🚗';
+          } else if (route.name === 'BpmCheck') {
+            iconName = '💰';
+          } else if (route.name === 'BijtellingCheck') {
+            iconName = '📊';
+          }
+          return <Text style={{ fontSize: size, color }}>{iconName}</Text>;
+        },
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarStyle: {
+          backgroundColor: colors.card,
+          borderTopColor: colors.border,
+        },
+        headerStyle: {
+          backgroundColor: colors.card,
+        },
+        headerTintColor: colors.text,
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      })}
+    >
+      <Tab.Screen 
+        name="KentekenCheck" 
+        component={KentekenCheckScreen}
+        options={({ navigation }) => ({ 
+          title: 'Kenteken',
+          headerRight: () => <SettingsButton navigation={navigation} />
+        })}
+      />
+      <Tab.Screen 
+        name="BpmCheck" 
+        component={BpmCheckScreen}
+        options={({ navigation }) => ({ 
+          title: 'BPM Check',
+          headerRight: () => <SettingsButton navigation={navigation} />
+        })}
+      />
+      <Tab.Screen 
+        name="BijtellingCheck" 
+        component={BijtellingCheckScreen}
+        options={({ navigation }) => ({ 
+          title: 'Bijtelling',
+          headerRight: () => <SettingsButton navigation={navigation} />
+        })}
+      />
+    </Tab.Navigator>
+  );
+};
+
+// Main app component
+const AppContent = () => {
+  const { colors } = useTheme();
+
+  return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <NavigationContainer
+        theme={{
+          colors: {
+            background: colors.background,
+            border: colors.border,
+            card: colors.card,
+            primary: colors.primary,
+            text: colors.text,
+          },
+        }}
+      >
+        <Stack.Navigator
+          screenOptions={{
+            headerStyle: {
+              backgroundColor: colors.card,
+            },
+            headerTintColor: colors.text,
+            headerTitleStyle: {
+              fontWeight: 'bold',
+            },
+          }}
+        >
+          <Stack.Screen 
+            name="Main" 
+            component={TabNavigator}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen 
+            name="Settings" 
+            component={SettingsScreen}
+            options={{ 
+              title: 'Instellingen',
+              headerStyle: {
+                backgroundColor: colors.card,
+              },
+              headerTintColor: colors.text,
+            }}
+          />
+        </Stack.Navigator>
+        <StatusBar style={colors.isDark ? 'light' : 'dark'} />
+      </NavigationContainer>
+    </GestureHandlerRootView>
+  );
+};
+
+// Root component with theme provider
 export default function App() {
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Welkom bij Autototaal!</Text>
-        <Text style={styles.subtitle}>Dit is een test tekst op het scherm</Text>
-        <Text style={styles.description}>
-          Je app is succesvol opgezet en klaar voor ontwikkeling!
-        </Text>
-      </View>
-      <StatusBar style="auto" />
-    </SafeAreaView>
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
+  settingsButton: {
+    marginRight: 15,
+    padding: 5,
   },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  subtitle: {
-    fontSize: 18,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  description: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
-    lineHeight: 24,
+  settingsIcon: {
+    fontSize: 24,
   },
 }); 
