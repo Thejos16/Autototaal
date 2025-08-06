@@ -6,7 +6,6 @@ import { StatusBar } from 'expo-status-bar';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
-import 'react-native-gesture-handler';
 
 // Import screens
 import HomeScreen from './src/screens/HomeScreen';
@@ -28,6 +27,20 @@ const SettingsButton = ({ navigation }) => {
       onPress={() => navigation.navigate('Settings')}
     >
       <Text style={[styles.settingsIcon, { color: colors.text }]}>👤</Text>
+    </TouchableOpacity>
+  );
+};
+
+// Back button component for header
+const BackButton = ({ navigation }) => {
+  const { colors } = useTheme();
+  
+  return (
+    <TouchableOpacity
+      style={styles.backButton}
+      onPress={() => navigation.goBack()}
+    >
+      <Text style={[styles.backIcon, { color: colors.text }]}>←</Text>
     </TouchableOpacity>
   );
 };
@@ -96,6 +109,7 @@ const TabNavigator = () => {
         component={BijtellingCheckScreen}
         options={({ navigation }) => ({ 
           title: 'Bijtelling',
+          headerLeft: () => <BackButton navigation={navigation} />,
           headerRight: () => <SettingsButton navigation={navigation} />
         })}
       />
@@ -169,6 +183,13 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   settingsIcon: {
+    fontSize: 24,
+  },
+  backButton: {
+    marginLeft: 15,
+    padding: 5,
+  },
+  backIcon: {
     fontSize: 24,
   },
 }); 
