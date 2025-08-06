@@ -6,8 +6,10 @@ import { StatusBar } from 'expo-status-bar';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import 'react-native-gesture-handler';
 
 // Import screens
+import HomeScreen from './src/screens/HomeScreen';
 import KentekenCheckScreen from './src/screens/KentekenCheckScreen';
 import BpmCheckScreen from './src/screens/BpmCheckScreen';
 import BijtellingCheckScreen from './src/screens/BijtellingCheckScreen';
@@ -25,7 +27,7 @@ const SettingsButton = ({ navigation }) => {
       style={styles.settingsButton}
       onPress={() => navigation.navigate('Settings')}
     >
-      <Text style={[styles.settingsIcon, { color: colors.text }]}>⚙️</Text>
+      <Text style={[styles.settingsIcon, { color: colors.text }]}>👤</Text>
     </TouchableOpacity>
   );
 };
@@ -39,7 +41,9 @@ const TabNavigator = () => {
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-          if (route.name === 'KentekenCheck') {
+          if (route.name === 'Home') {
+            iconName = '🏠';
+          } else if (route.name === 'KentekenCheck') {
             iconName = '🚗';
           } else if (route.name === 'BpmCheck') {
             iconName = '💰';
@@ -63,6 +67,14 @@ const TabNavigator = () => {
         },
       })}
     >
+      <Tab.Screen 
+        name="Home" 
+        component={HomeScreen}
+        options={({ navigation }) => ({ 
+          title: 'Home',
+          headerRight: () => <SettingsButton navigation={navigation} />
+        })}
+      />
       <Tab.Screen 
         name="KentekenCheck" 
         component={KentekenCheckScreen}
@@ -128,7 +140,7 @@ const AppContent = () => {
             name="Settings" 
             component={SettingsScreen}
             options={{ 
-              title: 'Instellingen',
+              title: 'Account',
               headerStyle: {
                 backgroundColor: colors.card,
               },
