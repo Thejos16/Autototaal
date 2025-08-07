@@ -10,6 +10,8 @@ import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 // Import screens
 import HomeScreen from './src/screens/HomeScreen';
 import KentekenCheckScreen from './src/screens/KentekenCheckScreen';
+import RekenhulpScreen from './src/screens/RekenhulpScreen';
+import InfohoekScreen from './src/screens/InfohoekScreen';
 import BpmCheckScreen from './src/screens/BpmCheckScreen';
 import BijtellingCheckScreen from './src/screens/BijtellingCheckScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
@@ -58,10 +60,10 @@ const TabNavigator = () => {
             iconName = '🏠';
           } else if (route.name === 'KentekenCheck') {
             iconName = '🚗';
-          } else if (route.name === 'BpmCheck') {
-            iconName = '💰';
-          } else if (route.name === 'BijtellingCheck') {
-            iconName = '📊';
+          } else if (route.name === 'Rekenhulp') {
+            iconName = '🧮';
+          } else if (route.name === 'Infohoek') {
+            iconName = '📚';
           }
           return <Text style={{ fontSize: size, color }}>{iconName}</Text>;
         },
@@ -93,22 +95,24 @@ const TabNavigator = () => {
         component={KentekenCheckScreen}
         options={({ navigation }) => ({ 
           title: 'Kenteken',
+          headerLeft: () => <BackButton navigation={navigation} />,
           headerRight: () => <SettingsButton navigation={navigation} />
         })}
       />
       <Tab.Screen 
-        name="BpmCheck" 
-        component={BpmCheckScreen}
+        name="Rekenhulp" 
+        component={RekenhulpScreen}
         options={({ navigation }) => ({ 
-          title: 'BPM Check',
+          title: 'Rekenhulp',
+          headerLeft: () => <BackButton navigation={navigation} />,
           headerRight: () => <SettingsButton navigation={navigation} />
         })}
       />
       <Tab.Screen 
-        name="BijtellingCheck" 
-        component={BijtellingCheckScreen}
+        name="Infohoek" 
+        component={InfohoekScreen}
         options={({ navigation }) => ({ 
-          title: 'Bijtelling',
+          title: 'Infohoek',
           headerLeft: () => <BackButton navigation={navigation} />,
           headerRight: () => <SettingsButton navigation={navigation} />
         })}
@@ -155,6 +159,28 @@ const AppContent = () => {
             component={SettingsScreen}
             options={{ 
               title: 'Account',
+              headerStyle: {
+                backgroundColor: colors.card,
+              },
+              headerTintColor: colors.text,
+            }}
+          />
+          <Stack.Screen 
+            name="BpmCheck" 
+            component={BpmCheckScreen}
+            options={{ 
+              title: 'BPM Check',
+              headerStyle: {
+                backgroundColor: colors.card,
+              },
+              headerTintColor: colors.text,
+            }}
+          />
+          <Stack.Screen 
+            name="BijtellingCheck" 
+            component={BijtellingCheckScreen}
+            options={{ 
+              title: 'Bijtelling Check',
               headerStyle: {
                 backgroundColor: colors.card,
               },

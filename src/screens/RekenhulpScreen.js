@@ -9,16 +9,23 @@ import {
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
-const HomeScreen = ({ navigation }) => {
+const RekenhulpScreen = ({ navigation }) => {
   const { colors } = useTheme();
 
-  const checkOptions = [
+  const calculationOptions = [
     {
-      id: 'kenteken',
-      title: 'Kentekencheck',
-      description: 'Controleer voertuiginformatie op basis van kenteken',
-      icon: '🚗',
-      screen: 'KentekenCheck',
+      id: 'bpm',
+      title: 'BPM Check',
+      description: 'Bereken en controleer BPM voor je voertuig',
+      icon: '💰',
+      screen: 'BpmCheck',
+    },
+    {
+      id: 'bijtelling',
+      title: 'Bijtelling Check',
+      description: 'Bereken bijtelling voor zakelijke auto\'s',
+      icon: '📊',
+      screen: 'BijtellingCheck',
     },
   ];
 
@@ -31,7 +38,7 @@ const HomeScreen = ({ navigation }) => {
       flex: 1,
       padding: 20,
     },
-    welcomeSection: {
+    headerSection: {
       marginBottom: 40,
     },
     title: {
@@ -47,7 +54,7 @@ const HomeScreen = ({ navigation }) => {
       textAlign: 'center',
       lineHeight: 26,
     },
-    checksSection: {
+    calculationsSection: {
       flex: 1,
     },
     sectionTitle: {
@@ -56,7 +63,7 @@ const HomeScreen = ({ navigation }) => {
       color: colors.text,
       marginBottom: 20,
     },
-    checkCard: {
+    calculationCard: {
       backgroundColor: colors.card,
       borderRadius: 16,
       padding: 20,
@@ -64,25 +71,25 @@ const HomeScreen = ({ navigation }) => {
       borderWidth: 1,
       borderColor: colors.border,
     },
-    checkHeader: {
+    calculationHeader: {
       flexDirection: 'row',
       alignItems: 'center',
       marginBottom: 12,
     },
-    checkIcon: {
+    calculationIcon: {
       fontSize: 32,
       marginRight: 16,
     },
-    checkInfo: {
+    calculationInfo: {
       flex: 1,
     },
-    checkTitle: {
+    calculationTitle: {
       fontSize: 20,
       fontWeight: '600',
       color: colors.text,
       marginBottom: 4,
     },
-    checkDescription: {
+    calculationDescription: {
       fontSize: 16,
       color: colors.textSecondary,
       lineHeight: 22,
@@ -111,32 +118,32 @@ const HomeScreen = ({ navigation }) => {
         alwaysBounceVertical={false}
         contentContainerStyle={{ flexGrow: 1 }}
       >
-        {/* Welcome Section */}
-        <View style={styles.welcomeSection}>
-          <Text style={styles.title}>Welkom bij Autototaal!</Text>
+        {/* Header Section */}
+        <View style={styles.headerSection}>
+          <Text style={styles.title}>Rekenhulp</Text>
           <Text style={styles.subtitle}>
-            Ontdek alles over je voertuig met onze handige tools. 
-            Controleer kentekens, bereken BPM en bijtelling, en krijg 
-            inzicht in alle belangrijke voertuig informatie.
+            Bereken BPM en bijtelling voor je voertuig. 
+            Krijg inzicht in de kosten en belastingen die 
+            van toepassing zijn op jouw situatie.
           </Text>
         </View>
 
-        {/* Checks Section */}
-        <View style={styles.checksSection}>
-          <Text style={styles.sectionTitle}>Beschikbare Tools</Text>
+        {/* Calculations Section */}
+        <View style={styles.calculationsSection}>
+          <Text style={styles.sectionTitle}>Beschikbare Berekenings</Text>
           
-          {checkOptions.map((check) => (
+          {calculationOptions.map((calculation) => (
             <TouchableOpacity
-              key={check.id}
-              style={styles.checkCard}
-              onPress={() => navigation.navigate(check.screen)}
+              key={calculation.id}
+              style={styles.calculationCard}
+              onPress={() => navigation.navigate(calculation.screen)}
             >
-              <View style={styles.checkHeader}>
-                <Text style={styles.checkIcon}>{check.icon}</Text>
-                <View style={styles.checkInfo}>
-                  <Text style={styles.checkTitle}>{check.title}</Text>
-                  <Text style={styles.checkDescription}>
-                    {check.description}
+              <View style={styles.calculationHeader}>
+                <Text style={styles.calculationIcon}>{calculation.icon}</Text>
+                <View style={styles.calculationInfo}>
+                  <Text style={styles.calculationTitle}>{calculation.title}</Text>
+                  <Text style={styles.calculationDescription}>
+                    {calculation.description}
                   </Text>
                 </View>
               </View>
@@ -151,4 +158,4 @@ const HomeScreen = ({ navigation }) => {
   );
 };
 
-export default HomeScreen; 
+export default RekenhulpScreen;
