@@ -5,6 +5,7 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 
@@ -52,31 +53,30 @@ const InfohoekScreen = () => {
       marginBottom: 16,
       borderWidth: 1,
       borderColor: colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    infoContent: {
+      flex: 1,
     },
     infoTitle: {
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: '600',
       color: colors.text,
-      marginBottom: 12,
+      marginBottom: 4,
     },
     infoText: {
-      fontSize: 16,
+      fontSize: 14,
       color: colors.textSecondary,
-      lineHeight: 22,
+      lineHeight: 20,
     },
-    comingSoon: {
-      backgroundColor: colors.warning,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 20,
-      marginTop: 12,
-      alignSelf: 'flex-start',
+    arrowIcon: {
+      fontSize: 20,
+      color: colors.textSecondary,
+      marginLeft: 12,
     },
-    comingSoonText: {
-      color: colors.background,
-      fontSize: 12,
-      fontWeight: '600',
-    },
+
   });
 
   return (
@@ -102,38 +102,35 @@ const InfohoekScreen = () => {
         <View style={styles.infoSection}>
           <Text style={styles.sectionTitle}>Beschikbare Informatie</Text>
           
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>🚗 Voertuiginformatie</Text>
-            <Text style={styles.infoText}>
-              Leer alles over verschillende voertuigtypes, hun specificaties 
-              en wat je moet weten bij aankoop of verkoop.
-            </Text>
-            <View style={styles.comingSoon}>
-              <Text style={styles.comingSoonText}>Binnenkort beschikbaar</Text>
+          <TouchableOpacity style={styles.infoCard}>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>🚗 Voertuiginformatie</Text>
+              <Text style={styles.infoText}>
+                Leer alles over verschillende voertuigtypes en specificaties
+              </Text>
             </View>
-          </View>
+            <Text style={styles.arrowIcon}>→</Text>
+          </TouchableOpacity>
 
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>💰 Belastingen & Kosten</Text>
-            <Text style={styles.infoText}>
-              Uitgebreide informatie over BPM, bijtelling, wegenbelasting 
-              en andere kosten die komen kijken bij autobezit.
-            </Text>
-            <View style={styles.comingSoon}>
-              <Text style={styles.comingSoonText}>Binnenkort beschikbaar</Text>
+          <TouchableOpacity style={styles.infoCard}>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>💰 Belastingen & Kosten</Text>
+              <Text style={styles.infoText}>
+                Uitgebreide informatie over BPM, bijtelling en wegenbelasting
+              </Text>
             </View>
-          </View>
+            <Text style={styles.arrowIcon}>→</Text>
+          </TouchableOpacity>
 
-          <View style={styles.infoCard}>
-            <Text style={styles.infoTitle}>📋 Regelgeving</Text>
-            <Text style={styles.infoText}>
-              Actuele informatie over wetgeving, verplichtingen en 
-              regelgeving rondom voertuigen en verkeer.
-            </Text>
-            <View style={styles.comingSoon}>
-              <Text style={styles.comingSoonText}>Binnenkort beschikbaar</Text>
+          <TouchableOpacity style={styles.infoCard}>
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>📋 Regelgeving</Text>
+              <Text style={styles.infoText}>
+                Actuele informatie over wetgeving en verplichtingen
+              </Text>
             </View>
-          </View>
+            <Text style={styles.arrowIcon}>→</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
