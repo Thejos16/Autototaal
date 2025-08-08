@@ -13,8 +13,8 @@ export const RDW_ENDPOINTS = {
 
 // Helper function to build query URL
 export const buildRDWQuery = (kenteken) => {
-  // Optimized query with only needed fields
-  const query = `?$select=kenteken,merk,handelsbenaming,catalogusprijs,vermogen_massarijklaar,cilinderinhoud,aantal_cilinders&$where=kenteken='${kenteken.toUpperCase()}'`;
+  // Optimized query with APK datum included
+  const query = `?$select=kenteken,merk,handelsbenaming,catalogusprijs,vermogen_massarijklaar,cilinderinhoud,aantal_cilinders,vervaldatum_apk_dt&$where=kenteken='${kenteken.toUpperCase()}'`;
   return `${RDW_ENDPOINTS.VEHICLES}${query}`;
 };
 
