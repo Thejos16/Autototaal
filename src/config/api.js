@@ -13,8 +13,8 @@ export const RDW_ENDPOINTS = {
 
 // Helper function to build query URL
 export const buildRDWQuery = (kenteken) => {
-  // Optimized query with APK datum included
-  const query = `?$select=kenteken,merk,handelsbenaming,catalogusprijs,vermogen_massarijklaar,cilinderinhoud,aantal_cilinders,vervaldatum_apk_dt&$where=kenteken='${kenteken.toUpperCase()}'`;
+  // Extended query with correct field names from RDW API
+  const query = `?$select=kenteken,merk,handelsbenaming,voertuigsoort,eerste_kleur,inrichting,aantal_zitplaatsen,catalogusprijs,datum_eerste_toelating_dt,datum_tenaamstelling,vervaldatum_apk_dt,aantal_cilinders,cilinderinhoud,vermogen_massarijklaar,aanhangwagen_autonoom_geremd,aanhangwagen_middenas_geremd,wielbasis,massa_ledig_voertuig,massa_rijklaar,toegestane_maximum_massa_voertuig,laadvermogen,lengte,breedte,aantal_wielen&$where=kenteken='${kenteken.toUpperCase()}'`;
   return `${RDW_ENDPOINTS.VEHICLES}${query}`;
 };
 

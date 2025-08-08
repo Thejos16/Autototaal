@@ -92,27 +92,95 @@ const SettingsScreen = () => {
 
   const calculateDaysDifference = (dateString) => {
     if (!dateString) return 0;
-    const targetDate = new Date(dateString);
+    console.log('Calculating days difference for date:', dateString);
+    
+    let targetDate;
+    if (typeof dateString === 'string') {
+      if (dateString.includes('T')) {
+        // ISO format: "2024-10-25T00:00:00.000"
+        targetDate = new Date(dateString);
+      } else if (dateString.includes('-')) {
+        // Date format: "2024-10-25"
+        targetDate = new Date(dateString + 'T00:00:00');
+      } else {
+        targetDate = new Date(dateString);
+      }
+    } else {
+      targetDate = new Date(dateString);
+    }
+    
+    console.log('Parsed target date:', targetDate);
+    
+    if (isNaN(targetDate.getTime())) {
+      console.error('Invalid date:', dateString);
+      return 0;
+    }
+    
     const today = new Date();
     const diffTime = targetDate - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    console.log('Days difference:', diffDays);
     return diffDays;
   };
 
   const addToCalendar = (title, date, description) => {
-    const calendarDate = new Date(date);
-    calendarDate.setMonth(calendarDate.getMonth() - 1); // 1 maand eerder
+    console.log('Original date:', date);
     
-    const formattedDate = calendarDate.toISOString().split('T')[0];
-    const formattedTime = '09:00'; // Standaard tijd
+    // Parse de datum correct
+    let calendarDate;
+    if (typeof date === 'string') {
+      // Als het een string is, probeer verschillende formaten
+      if (date.includes('T')) {
+        // ISO format: "2024-10-25T00:00:00.000"
+        calendarDate = new Date(date);
+      } else if (date.includes('-')) {
+        // Date format: "2024-10-25"
+        calendarDate = new Date(date + 'T00:00:00');
+      } else {
+        // Fallback
+        calendarDate = new Date();
+      }
+    } else {
+      calendarDate = new Date(date);
+    }
     
-    const calendarUrl = `calshow://?title=${encodeURIComponent(title)}&date=${formattedDate}&time=${formattedTime}&notes=${encodeURIComponent(description)}`;
+    console.log('Parsed calendar date:', calendarDate);
+    
+    // Controleer of de datum geldig is
+    if (isNaN(calendarDate.getTime())) {
+      Alert.alert('Fout', 'Ongeldige datum voor agenda afspraak');
+      return;
+    }
+    
+    // 1 maand eerder
+    calendarDate.setMonth(calendarDate.getMonth() - 1);
+    calendarDate.setHours(9, 0, 0, 0); // 9:00 uur
+    
+    console.log('Final calendar date:', calendarDate);
+    
+    // Format voor iOS Calendar
+    const startDate = calendarDate.toISOString();
+    const endDate = new Date(calendarDate.getTime() + 15 * 60 * 1000).toISOString(); // 15 minuten later
+    
+    console.log('Start date:', startDate);
+    console.log('End date:', endDate);
+    
+    // iOS Calendar URL
+    const calendarUrl = `calshow://?title=${encodeURIComponent(title)}&start=${startDate}&end=${endDate}&notes=${encodeURIComponent(description)}`;
+    
+    // Fallback voor Android
+    const androidCalendarUrl = `content://com.android.calendar/time/${calendarDate.getTime()}`;
+    
+    console.log('Calendar URL:', calendarUrl);
     
     Linking.canOpenURL(calendarUrl).then(supported => {
       if (supported) {
         Linking.openURL(calendarUrl);
       } else {
-        Alert.alert('Fout', 'Kan agenda niet openen');
+        // Probeer Android calendar
+        Linking.openURL(androidCalendarUrl).catch(() => {
+          Alert.alert('Fout', 'Kan agenda niet openen. Voeg handmatig toe aan je agenda.');
+        });
       }
     });
   };
@@ -121,16 +189,59 @@ const SettingsScreen = () => {
     // Remove all non-alphanumeric characters and convert to uppercase
     const cleaned = text.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
     
-    // Format as XX-XX-XX or XX-XXX-X
-    if (cleaned.length <= 2) {
-      return cleaned;
-    } else if (cleaned.length <= 4) {
-      return `${cleaned.slice(0, 2)}-${cleaned.slice(2)}`;
-    } else if (cleaned.length <= 6) {
-      return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 4)}-${cleaned.slice(4)}`;
-    } else {
-      return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 5)}-${cleaned.slice(5, 6)}`;
+    if (cleaned.length === 0) return '';
+    
+    // Nederlandse kenteken formaten
+    const patterns = [
+      // Sidecode 1: XX-00-00 (twee letters, twee cijfers, twee cijfers)
+      { pattern: /^([A-Z]{2})(\d{2})(\d{2})$/, format: '$1-$2-$3' },
+      
+      // Sidecode 2: 00-00-XX (twee cijfers, twee cijfers, twee letters)
+      { pattern: /^(\d{2})(\d{2})([A-Z]{2})$/, format: '$1-$2-$3' },
+      
+      // Sidecode 3: 00-XX-00 (twee cijfers, twee letters, twee cijfers)
+      { pattern: /^(\d{2})([A-Z]{2})(\d{2})$/, format: '$1-$2-$3' },
+      
+      // Sidecode 4: XX-00-XX (twee letters, twee cijfers, twee letters)
+      { pattern: /^([A-Z]{2})(\d{2})([A-Z]{2})$/, format: '$1-$2-$3' },
+      
+      // Sidecode 5: 00-XX-XX (twee cijfers, twee letters, twee letters)
+      { pattern: /^(\d{2})([A-Z]{2})([A-Z]{2})$/, format: '$1-$2-$3' },
+      
+      // Sidecode 6: XX-XX-00 (twee letters, twee letters, twee cijfers)
+      { pattern: /^([A-Z]{2})([A-Z]{2})(\d{2})$/, format: '$1-$2-$3' },
+      
+      // Sidecode 7: 0-XX-000 (één cijfer, twee letters, drie cijfers)
+      { pattern: /^(\d)([A-Z]{2})(\d{3})$/, format: '$1-$2-$3' },
+      
+      // Sidecode 8: 000-XX-0 (drie cijfers, twee letters, één cijfer)
+      { pattern: /^(\d{3})([A-Z]{2})(\d)$/, format: '$1-$2-$3' },
+      
+      // Sidecode 9: X-000-XX (één letter, drie cijfers, twee letters)
+      { pattern: /^([A-Z])(\d{3})([A-Z]{2})$/, format: '$1-$2-$3' },
+      
+      // Sidecode 10: XX-000-X (twee letters, drie cijfers, één letter)
+      { pattern: /^([A-Z]{2})(\d{3})([A-Z])$/, format: '$1-$2-$3' },
+      
+      // Motorfietsen: M-00-XX (één letter, twee cijfers, twee letters)
+      { pattern: /^([A-Z])(\d{2})([A-Z]{2})$/, format: '$1-$2-$3' },
+      
+      // Bromfietsen Sidecode 1: A0-00-0 (twee letters, twee cijfers, één cijfer)
+      { pattern: /^([A-Z]{2})(\d{2})(\d)$/, format: '$1-$2-$3' },
+      
+      // Bromfietsen Sidecode 2: 0-00-00 (één cijfer, twee cijfers, twee cijfers)
+      { pattern: /^(\d)(\d{2})(\d{2})$/, format: '$1-$2-$3' },
+    ];
+    
+    // Probeer elk patroon
+    for (const { pattern, format } of patterns) {
+      if (pattern.test(cleaned)) {
+        return cleaned.replace(pattern, format);
+      }
     }
+    
+    // Als geen patroon past, return de cleaned string
+    return cleaned;
   };
 
   const handleKentekenChange = async (vehicleId, text) => {
@@ -619,7 +730,7 @@ const SettingsScreen = () => {
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>APK vervaldatum:</Text>
                     <Text style={styles.infoValue}>
-                      {new Date(vehicle.apkDatum).toLocaleDateString('nl-NL')}
+                      {vehicle.apkDatum ? new Date(vehicle.apkDatum).toLocaleDateString('nl-NL') : 'Niet beschikbaar'}
                     </Text>
                   </View>
                   
