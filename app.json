@@ -13,9 +13,16 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCalendarsUsageDescription": "We hebben toegang nodig tot je agenda om APK-herinneringen toe te voegen."
+      }
     },
     "android": {
+      "permissions": [
+        "READ_CALENDAR",
+        "WRITE_CALENDAR"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF"
       }

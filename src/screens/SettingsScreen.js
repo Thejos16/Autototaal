@@ -16,6 +16,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 import { buildRDWQuery, getRDWHeaders } from '../config/api';
+import { addApkToCalendar } from '../utils/calendar';
 
 const SettingsScreen = () => {
   const { colors, theme, setTheme } = useTheme();
@@ -30,6 +31,7 @@ const SettingsScreen = () => {
     handelsbenaming: '',
     apkDatum: '',
     apkDagenOver: 0,
+    agendaToegevoegd: false,
   });
   const [tempVehicleData, setTempVehicleData] = useState(null);
 
@@ -123,65 +125,21 @@ const SettingsScreen = () => {
     return diffDays;
   };
 
-  const addToCalendar = (title, date, description) => {
-    console.log('Original date:', date);
-    
-    // Parse de datum correct
-    let calendarDate;
-    if (typeof date === 'string') {
-      // Als het een string is, probeer verschillende formaten
-      if (date.includes('T')) {
-        // ISO format: "2024-10-25T00:00:00.000"
-        calendarDate = new Date(date);
-      } else if (date.includes('-')) {
-        // Date format: "2024-10-25"
-        calendarDate = new Date(date + 'T00:00:00');
-      } else {
-        // Fallback
-        calendarDate = new Date();
-      }
-    } else {
-      calendarDate = new Date(date);
-    }
-    
-    console.log('Parsed calendar date:', calendarDate);
-    
-    // Controleer of de datum geldig is
-    if (isNaN(calendarDate.getTime())) {
-      Alert.alert('Fout', 'Ongeldige datum voor agenda afspraak');
-      return;
-    }
-    
-    // 1 maand eerder
-    calendarDate.setMonth(calendarDate.getMonth() - 1);
-    calendarDate.setHours(9, 0, 0, 0); // 9:00 uur
-    
-    console.log('Final calendar date:', calendarDate);
-    
-    // Format voor iOS Calendar
-    const startDate = calendarDate.toISOString();
-    const endDate = new Date(calendarDate.getTime() + 15 * 60 * 1000).toISOString(); // 15 minuten later
-    
-    console.log('Start date:', startDate);
-    console.log('End date:', endDate);
-    
-    // iOS Calendar URL
-    const calendarUrl = `calshow://?title=${encodeURIComponent(title)}&start=${startDate}&end=${endDate}&notes=${encodeURIComponent(description)}`;
-    
-    // Fallback voor Android
-    const androidCalendarUrl = `content://com.android.calendar/time/${calendarDate.getTime()}`;
-    
-    console.log('Calendar URL:', calendarUrl);
-    
-    Linking.canOpenURL(calendarUrl).then(supported => {
-      if (supported) {
-        Linking.openURL(calendarUrl);
-      } else {
-        // Probeer Android calendar
-        Linking.openURL(androidCalendarUrl).catch(() => {
-          Alert.alert('Fout', 'Kan agenda niet openen. Voeg handmatig toe aan je agenda.');
-        });
-      }
+  const addToCalendar = (title, date, description, vehicleIndex) => {
+    addApkToCalendar(date, title, description, () => {
+      // Mark as added to calendar
+      setVehicles(prevVehicles => {
+        const updatedVehicles = [...prevVehicles];
+        if (updatedVehicles[vehicleIndex]) {
+          updatedVehicles[vehicleIndex] = {
+            ...updatedVehicles[vehicleIndex],
+            agendaToegevoegd: true
+          };
+          // Save to AsyncStorage
+          AsyncStorage.setItem('savedVehicles', JSON.stringify(updatedVehicles));
+        }
+        return updatedVehicles;
+      });
     });
   };
 
@@ -649,6 +607,30 @@ const SettingsScreen = () => {
       fontSize: 18,
       fontWeight: '600',
     },
+    statusRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+      paddingHorizontal: 4,
+    },
+    statusText: {
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    statusYes: {
+      color: '#4CAF50',
+    },
+    statusNo: {
+      color: '#FF9800',
+    },
+    buttonDisabled: {
+      backgroundColor: '#CCCCCC',
+      opacity: 0.7,
+    },
+    buttonTextDisabled: {
+      color: '#666666',
+    },
   });
 
   return (
@@ -705,7 +687,7 @@ const SettingsScreen = () => {
           <Text style={styles.sectionTitle}>Auto Onderhoud</Text>
           
           {/* Voertuig kaarten */}
-          {vehicles.map((vehicle) => (
+          {vehicles.map((vehicle, index) => (
             <View key={vehicle.id} style={styles.vehicleCard}>
               <View style={styles.vehicleHeader}>
                 <Text style={styles.vehicleTitle}>{vehicle.handelsbenaming || vehicle.kenteken}</Text>
@@ -746,15 +728,27 @@ const SettingsScreen = () => {
                     </Text>
                   </View>
 
+                  {/* APK Agenda Status */}
+                  <View style={styles.statusRow}>
+                    <Text style={styles.label}>Toegevoegd aan agenda:</Text>
+                    <Text style={[styles.statusText, vehicle.agendaToegevoegd ? styles.statusYes : styles.statusNo]}>
+                      {vehicle.agendaToegevoegd ? 'Ja' : 'Nee'}
+                    </Text>
+                  </View>
+
                   <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => addToCalendar(
-                      `APK ${vehicle.handelsbenaming || vehicle.kenteken}`,
+                    style={[styles.button, vehicle.agendaToegevoegd && styles.buttonDisabled]}
+                    onPress={() => !vehicle.agendaToegevoegd && addToCalendar(
+                      'APK inplannen',
                       vehicle.apkDatum,
-                      `APK afspraak inplannen voor ${vehicle.handelsbenaming || vehicle.kenteken}`
+                      `APK afspraak inplannen voor ${vehicle.handelsbenaming || vehicle.kenteken}`,
+                      index
                     )}
+                    disabled={vehicle.agendaToegevoegd}
                   >
-                    <Text style={styles.buttonText}>APK Reminder toevoegen</Text>
+                    <Text style={[styles.buttonText, vehicle.agendaToegevoegd && styles.buttonTextDisabled]}>
+                      {vehicle.agendaToegevoegd ? 'APK Reminder toegevoegd ✓' : 'APK Reminder toevoegen'}
+                    </Text>
                   </TouchableOpacity>
                 </>
               )}
@@ -918,7 +912,7 @@ const SettingsScreen = () => {
                   <TouchableOpacity
                     style={styles.button}
                     onPress={() => addToCalendar(
-                      `Onderhoud ${vehicle.handelsbenaming || vehicle.kenteken}`,
+                      'APK inplannen',
                       vehicle.onderhoudDatum,
                       `Onderhoud afspraak inplannen voor ${vehicle.handelsbenaming || vehicle.kenteken}`
                     )}

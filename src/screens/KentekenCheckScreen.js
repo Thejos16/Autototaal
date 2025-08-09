@@ -9,10 +9,10 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { buildRDWQuery, getRDWHeaders } from '../config/api';
+import { addApkToCalendar } from '../utils/calendar';
 
 const KentekenCheckScreen = () => {
   const { colors } = useTheme();
@@ -339,63 +339,7 @@ const KentekenCheckScreen = () => {
   };
 
   const addToCalendar = (title, date, description) => {
-    console.log('Adding to calendar - Original date:', date);
-    
-    // Parse de datum correct
-    let calendarDate;
-    if (typeof date === 'string') {
-      if (date.includes('T')) {
-        // ISO format: "2024-10-25T00:00:00.000"
-        calendarDate = new Date(date);
-      } else if (date.includes('-')) {
-        // Date format: "2024-10-25"
-        calendarDate = new Date(date + 'T00:00:00');
-      } else {
-        calendarDate = new Date();
-      }
-    } else {
-      calendarDate = new Date(date);
-    }
-    
-    console.log('Parsed calendar date:', calendarDate);
-    
-    // Controleer of de datum geldig is
-    if (isNaN(calendarDate.getTime())) {
-      Alert.alert('Fout', 'Ongeldige datum voor agenda afspraak');
-      return;
-    }
-    
-    // 1 maand eerder
-    calendarDate.setMonth(calendarDate.getMonth() - 1);
-    calendarDate.setHours(9, 0, 0, 0); // 9:00 uur
-    
-    console.log('Final calendar date:', calendarDate);
-    
-    // Format voor iOS Calendar
-    const startDate = calendarDate.toISOString();
-    const endDate = new Date(calendarDate.getTime() + 15 * 60 * 1000).toISOString(); // 15 minuten later
-    
-    console.log('Start date:', startDate);
-    console.log('End date:', endDate);
-    
-    // iOS Calendar URL
-    const calendarUrl = `calshow://?title=${encodeURIComponent(title)}&start=${startDate}&end=${endDate}&notes=${encodeURIComponent(description)}`;
-    
-    // Fallback voor Android
-    const androidCalendarUrl = `content://com.android.calendar/time/${calendarDate.getTime()}`;
-    
-    console.log('Calendar URL:', calendarUrl);
-    
-    Linking.canOpenURL(calendarUrl).then(supported => {
-      if (supported) {
-        Linking.openURL(calendarUrl);
-      } else {
-        // Probeer Android calendar
-        Linking.openURL(androidCalendarUrl).catch(() => {
-          Alert.alert('Fout', 'Kan agenda niet openen. Voeg handmatig toe aan je agenda.');
-        });
-      }
-    });
+    addApkToCalendar(date, title, description);
   };
 
   return (
@@ -612,7 +556,7 @@ const KentekenCheckScreen = () => {
               <TouchableOpacity 
                 style={styles.button}
                 onPress={() => addToCalendar(
-                  `APK ${vehicleData.handelsbenaming || vehicleData.kenteken}`,
+                  'APK inplannen',
                   vehicleData.vervaldatum_apk_dt,
                   `APK afspraak inplannen voor ${vehicleData.handelsbenaming || vehicleData.kenteken}`
                 )}
