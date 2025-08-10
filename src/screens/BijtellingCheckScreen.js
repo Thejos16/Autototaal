@@ -488,7 +488,7 @@ const BijtellingCheckScreen = ({ navigation }) => {
               style={styles.optionContainer}
               onPress={() => {
                 Alert.alert(
-                  'Binnenkort beschikbaar',
+                  //'Binnenkort beschikbaar',
                   'Kenteken zoeken wordt binnenkort toegevoegd.',
                   [{ text: 'OK' }]
                 );

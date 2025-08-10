@@ -551,19 +551,7 @@ const KentekenCheckScreen = () => {
               </View>
             </View>
 
-            {/* APK Reminder knop */}
-            {vehicleData.vervaldatum_apk_dt && (
-              <TouchableOpacity 
-                style={styles.button}
-                onPress={() => addToCalendar(
-                  'APK inplannen',
-                  vehicleData.vervaldatum_apk_dt,
-                  `APK afspraak inplannen voor ${vehicleData.handelsbenaming || vehicleData.kenteken}`
-                )}
-              >
-                <Text style={styles.buttonText}>APK Reminder toevoegen</Text>
-              </TouchableOpacity>
-            )}
+
 
             {/* Nieuwe zoekopdracht knop */}
             <TouchableOpacity 

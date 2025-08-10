@@ -12,6 +12,7 @@ import {
   Alert,
   TextInput,
   Platform,
+  Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
@@ -22,6 +23,20 @@ const SettingsScreen = () => {
   const { colors, theme, setTheme } = useTheme();
   const [showThemeModal, setShowThemeModal] = useState(false);
   const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(false);
+  
+  // Logo beheer systeem - hier kun je alle logo's toevoegen
+  const vehicleLogos = {
+    // Voeg hier je logo's toe in het formaat: 'handelsbenaming': require('../assets/logos/logo-naam.png')
+    // Voorbeeld:
+    // 'BMW 3 Serie': require('../assets/logos/bmw-3-serie.png'),
+    // 'Mercedes C-Klasse': require('../assets/logos/mercedes-c-klasse.png'),
+    // 'Audi A4': require('../assets/logos/audi-a4.png'),
+  };
+  
+  // Functie om het juiste logo te vinden op basis van handelsbenaming
+  const getVehicleLogo = (handelsbenaming) => {
+    return vehicleLogos[handelsbenaming] || null;
+  };
   
   // Onderhoud tracking state
   const [vehicles, setVehicles] = useState([]);
@@ -34,6 +49,9 @@ const SettingsScreen = () => {
     agendaToegevoegd: false,
   });
   const [tempVehicleData, setTempVehicleData] = useState(null);
+  
+  // State voor onderhoud reminder toggle per voertuig
+  const [showOnderhoudOptions, setShowOnderhoudOptions] = useState({});
 
   const themeOptions = [
     { key: 'light', label: 'Licht', description: 'Altijd lichte achtergrond' },
@@ -94,35 +112,45 @@ const SettingsScreen = () => {
 
   const calculateDaysDifference = (dateString) => {
     if (!dateString) return 0;
-    console.log('Calculating days difference for date:', dateString);
     
-    let targetDate;
-    if (typeof dateString === 'string') {
-      if (dateString.includes('T')) {
-        // ISO format: "2024-10-25T00:00:00.000"
-        targetDate = new Date(dateString);
-      } else if (dateString.includes('-')) {
-        // Date format: "2024-10-25"
-        targetDate = new Date(dateString + 'T00:00:00');
+    try {
+      let targetDate;
+      if (typeof dateString === 'string') {
+        if (dateString.includes('T')) {
+          // ISO format: "2024-10-25T00:00:00.000"
+          targetDate = new Date(dateString);
+        } else if (dateString.includes('-')) {
+          // Date format: "2024-10-25"
+          targetDate = new Date(dateString + 'T00:00:00');
+        } else if (dateString.length === 8 && /^\d{8}$/.test(dateString)) {
+          // Format: "20231011" -> "2023-10-11"
+          const year = dateString.substring(0, 4);
+          const month = dateString.substring(4, 6);
+          const day = dateString.substring(6, 8);
+          targetDate = new Date(`${year}-${month}-${day}T00:00:00`);
+        } else {
+          targetDate = new Date(dateString);
+        }
       } else {
         targetDate = new Date(dateString);
       }
-    } else {
-      targetDate = new Date(dateString);
-    }
-    
-    console.log('Parsed target date:', targetDate);
-    
-    if (isNaN(targetDate.getTime())) {
-      console.error('Invalid date:', dateString);
+      
+      if (isNaN(targetDate.getTime())) {
+        console.warn('Invalid date format:', dateString);
+        return 0;
+      }
+      
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time to start of day
+      targetDate.setHours(0, 0, 0, 0); // Reset time to start of day
+      
+      const diffTime = targetDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
+    } catch (error) {
+      console.warn('Error calculating days difference:', error);
       return 0;
     }
-    
-    const today = new Date();
-    const diffTime = targetDate - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    console.log('Days difference:', diffDays);
-    return diffDays;
   };
 
   const addToCalendar = (title, date, description, vehicleIndex) => {
@@ -579,8 +607,86 @@ const SettingsScreen = () => {
     vehicleHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       marginBottom: 16,
+    },
+    vehicleTitleContainer: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    vehicleTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 0,
+      flex: 1,
+    },
+    logoPlaceholder: {
+      width: 40,
+      height: 40,
+      backgroundColor: colors.border,
+      borderRadius: 8,
+      marginRight: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderStyle: 'dashed',
+    },
+    logoPlaceholderText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    vehicleLogo: {
+      width: 40,
+      height: 40,
+      marginRight: 12,
+      borderRadius: 8,
+    },
+    imageUploadSection: {
+      marginTop: 16,
+      padding: 16,
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderStyle: 'dashed',
+    },
+    imageUploadTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    imageUploadDescription: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 12,
+    },
+    uploadButton: {
+      backgroundColor: colors.primary,
+      borderRadius: 8,
+      padding: 12,
+      alignItems: 'center',
+    },
+    uploadButtonText: {
+      color: colors.background,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    onderhoudReminderButton: {
+      backgroundColor: colors.secondary,
+      borderRadius: 8,
+      padding: 12,
+      alignItems: 'center',
+      marginTop: 8,
+    },
+    onderhoudReminderButtonText: {
+      color: colors.background,
+      fontSize: 16,
+      fontWeight: '600',
     },
     removeButton: {
       width: 30,
@@ -690,7 +796,20 @@ const SettingsScreen = () => {
           {vehicles.map((vehicle, index) => (
             <View key={vehicle.id} style={styles.vehicleCard}>
               <View style={styles.vehicleHeader}>
-                <Text style={styles.vehicleTitle}>{vehicle.handelsbenaming || vehicle.kenteken}</Text>
+                <View style={styles.vehicleTitleContainer}>
+                  {getVehicleLogo(vehicle.handelsbenaming) ? (
+                    <Image 
+                      source={getVehicleLogo(vehicle.handelsbenaming)} 
+                      style={styles.vehicleLogo}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <TouchableOpacity style={styles.logoPlaceholder}>
+                      <Text style={styles.logoPlaceholderText}>Logo</Text>
+                    </TouchableOpacity>
+                  )}
+                  <Text style={styles.vehicleTitle}>{vehicle.handelsbenaming || vehicle.kenteken}</Text>
+                </View>
                 <TouchableOpacity
                   style={styles.removeButton}
                   onPress={() => removeVehicle(vehicle.id)}
@@ -698,6 +817,8 @@ const SettingsScreen = () => {
                   <Text style={styles.removeButtonText}>×</Text>
                 </TouchableOpacity>
               </View>
+              
+
               
               {/* Voertuig informatie */}
               {vehicle.handelsbenaming && (
@@ -730,7 +851,7 @@ const SettingsScreen = () => {
 
                   {/* APK Agenda Status */}
                   <View style={styles.statusRow}>
-                    <Text style={styles.label}>Toegevoegd aan agenda:</Text>
+                    <Text style={styles.infoLabel}>Toegevoegd aan agenda:</Text>
                     <Text style={[styles.statusText, vehicle.agendaToegevoegd ? styles.statusYes : styles.statusNo]}>
                       {vehicle.agendaToegevoegd ? 'Ja' : 'Nee'}
                     </Text>
@@ -753,65 +874,82 @@ const SettingsScreen = () => {
                 </>
               )}
 
-              {/* Onderhoud type selector */}
-              <View style={styles.onderhoudTypeContainer}>
-                <TouchableOpacity
-                  style={[
-                    styles.onderhoudTypeButton,
-                    vehicle.onderhoudType === 'kilometers' 
-                      ? styles.onderhoudTypeButtonActive 
-                      : styles.onderhoudTypeButtonInactive
-                  ]}
-                  onPress={() => {
-                    const updatedVehicles = vehicles.map(v => 
-                      v.id === vehicle.id 
-                        ? { ...v, onderhoudType: 'kilometers' }
-                        : v
-                    );
-                    setVehicles(updatedVehicles);
-                    saveVehiclesToStorage(updatedVehicles);
-                  }}
-                >
-                  <Text style={[
-                    styles.onderhoudTypeButtonText,
-                    vehicle.onderhoudType === 'kilometers' 
-                      ? styles.onderhoudTypeButtonTextActive 
-                      : styles.onderhoudTypeButtonTextInactive
-                  ]}>
-                    Kilometers
-                  </Text>
-                </TouchableOpacity>
+              {/* Onderhoud reminder knop */}
+              <TouchableOpacity
+                style={styles.onderhoudReminderButton}
+                onPress={() => {
+                  setShowOnderhoudOptions(prev => ({
+                    ...prev,
+                    [vehicle.id]: !prev[vehicle.id]
+                  }));
+                }}
+              >
+                <Text style={styles.onderhoudReminderButtonText}>
+                  {showOnderhoudOptions[vehicle.id] ? 'Onderhoud Opties Verbergen' : 'Onderhoud Reminder'}
+                </Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[
-                    styles.onderhoudTypeButton,
-                    vehicle.onderhoudType === 'tijd' 
-                      ? styles.onderhoudTypeButtonActive 
-                      : styles.onderhoudTypeButtonInactive
-                  ]}
-                  onPress={() => {
-                    const updatedVehicles = vehicles.map(v => 
-                      v.id === vehicle.id 
-                        ? { ...v, onderhoudType: 'tijd' }
-                        : v
-                    );
-                    setVehicles(updatedVehicles);
-                    saveVehiclesToStorage(updatedVehicles);
-                  }}
-                >
-                  <Text style={[
-                    styles.onderhoudTypeButtonText,
-                    vehicle.onderhoudType === 'tijd' 
-                      ? styles.onderhoudTypeButtonTextActive 
-                      : styles.onderhoudTypeButtonTextInactive
-                  ]}>
-                    Tijdsperiode
-                  </Text>
-                </TouchableOpacity>
-              </View>
+              {/* Onderhoud type selector - alleen zichtbaar na klikken op reminder knop */}
+              {showOnderhoudOptions[vehicle.id] && (
+                <View style={styles.onderhoudTypeContainer}>
+                  <TouchableOpacity
+                    style={[
+                      styles.onderhoudTypeButton,
+                      vehicle.onderhoudType === 'kilometers' 
+                        ? styles.onderhoudTypeButtonActive 
+                        : styles.onderhoudTypeButtonInactive
+                    ]}
+                    onPress={() => {
+                      const updatedVehicles = vehicles.map(v => 
+                        v.id === vehicle.id 
+                          ? { ...v, onderhoudType: 'kilometers' }
+                          : v
+                      );
+                      setVehicles(updatedVehicles);
+                      saveVehiclesToStorage(updatedVehicles);
+                    }}
+                  >
+                    <Text style={[
+                      styles.onderhoudTypeButtonText,
+                      vehicle.onderhoudType === 'kilometers' 
+                        ? styles.onderhoudTypeButtonTextActive 
+                        : styles.onderhoudTypeButtonTextInactive
+                    ]}>
+                      Kilometers
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.onderhoudTypeButton,
+                      vehicle.onderhoudType === 'tijd' 
+                        ? styles.onderhoudTypeButtonActive 
+                        : styles.onderhoudTypeButtonInactive
+                    ]}
+                    onPress={() => {
+                      const updatedVehicles = vehicles.map(v => 
+                        v.id === vehicle.id 
+                          ? { ...v, onderhoudType: 'tijd' }
+                          : v
+                      );
+                      setVehicles(updatedVehicles);
+                      saveVehiclesToStorage(updatedVehicles);
+                    }}
+                  >
+                    <Text style={[
+                      styles.onderhoudTypeButtonText,
+                      vehicle.onderhoudType === 'tijd' 
+                        ? styles.onderhoudTypeButtonTextActive 
+                        : styles.onderhoudTypeButtonTextInactive
+                    ]}>
+                      Tijdsperiode
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* Kilometers onderhoud */}
-              {vehicle.onderhoudType === 'kilometers' && (
+              {showOnderhoudOptions[vehicle.id] && vehicle.onderhoudType === 'kilometers' && (
                 <>
                   <TextInput
                     style={styles.inputField}
@@ -861,7 +999,7 @@ const SettingsScreen = () => {
               )}
 
               {/* Tijdsperiode onderhoud */}
-              {vehicle.onderhoudType === 'tijd' && (
+              {showOnderhoudOptions[vehicle.id] && vehicle.onderhoudType === 'tijd' && (
                 <TouchableOpacity
                   style={styles.secondaryButton}
                   onPress={() => {
@@ -888,7 +1026,7 @@ const SettingsScreen = () => {
               )}
 
               {/* Onderhoud informatie */}
-              {vehicle.onderhoudDatum && (
+              {showOnderhoudOptions[vehicle.id] && vehicle.onderhoudDatum && (
                 <>
                   <View style={styles.infoRow}>
                     <Text style={styles.infoLabel}>Verwachte onderhoud:</Text>
@@ -912,7 +1050,7 @@ const SettingsScreen = () => {
                   <TouchableOpacity
                     style={styles.button}
                     onPress={() => addToCalendar(
-                      'APK inplannen',
+                      'Onderhoud inplannen',
                       vehicle.onderhoudDatum,
                       `Onderhoud afspraak inplannen voor ${vehicle.handelsbenaming || vehicle.kenteken}`
                     )}
