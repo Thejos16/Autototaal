@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 import { buildRDWQuery, getRDWHeaders } from '../config/api';
 import { addApkToCalendar } from '../utils/calendar';
@@ -19,6 +20,7 @@ const KentekenCheckScreen = () => {
   const [kenteken, setKenteken] = useState('');
   const [loading, setLoading] = useState(false);
   const [vehicleData, setVehicleData] = useState(null);
+  const [recentSearches, setRecentSearches] = useState([]);
 
   const styles = StyleSheet.create({
     container: {
@@ -124,6 +126,81 @@ const KentekenCheckScreen = () => {
       color: colors.background,
       fontSize: 16,
       fontWeight: '600',
+    },
+    recentSearchesSection: {
+      marginBottom: 30,
+    },
+    recentSearchCard: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    recentSearchHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    recentSearchTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    recentSearchTimestamp: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    recentSearchInfo: {
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    clearRecentButton: {
+      backgroundColor: colors.error || '#FF4444',
+      borderRadius: 8,
+      padding: 8,
+      marginTop: 8,
+    },
+    clearRecentButtonText: {
+      color: colors.background,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    buyingInfoCard: {
+      backgroundColor: '#00aa65',
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: '#00aa65',
+      borderLeftWidth: 4,
+      borderLeftColor: '#00aa65',
+      backgroundColor: '#e8f5e8',
+    },
+    buyingInfoTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+      color: '#00aa65',
+      marginBottom: 16,
+    },
+    buyingInfoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    buyingInfoLabel: {
+      fontSize: 16,
+      color: colors.text,
+      flex: 1,
+    },
+    buyingInfoValue: {
+      fontSize: 16,
+      fontWeight: '500',
+      color: colors.text,
+      flex: 1,
+      textAlign: 'right',
     },
     errorText: {
       color: colors.error,
@@ -253,7 +330,28 @@ const KentekenCheckScreen = () => {
       
       if (data && data.length > 0) {
         console.log('Found vehicle data:', data[0]);
+        console.log('Available fields:', Object.keys(data[0]));
+        
+        // Debug: Log specifieke velden voor koopinformatie
+        const buyingInfoFields = [
+          'jaar_laatste_registratie_tellerstand',
+          'tellerstandoordeel', 
+          'export_indicator',
+          'plaats_chassisnummer',
+          'wacht_op_keuren',
+          'bruto_bpm',
+          'netto_bpm',
+          'bpm_tarief'
+        ];
+        
+        console.log('Buying info fields:');
+        buyingInfoFields.forEach(field => {
+          console.log(`${field}:`, data[0][field]);
+        });
+        
         setVehicleData(data[0]);
+        // Sla de zoekopdracht op
+        await saveRecentSearch(data[0]);
       } else {
         setVehicleData(null);
         Alert.alert('Geen resultaat', 'Geen voertuig gevonden met dit kenteken.');
@@ -284,31 +382,38 @@ const KentekenCheckScreen = () => {
   const formatDate = (dateString) => {
     if (!dateString) return 'Niet beschikbaar';
     
-    console.log('Formatting date:', dateString);
-    
-    let date;
-    if (typeof dateString === 'string') {
-      if (dateString.includes('T')) {
-        // ISO format: "2024-10-25T00:00:00.000"
-        date = new Date(dateString);
-      } else if (dateString.includes('-')) {
-        // Date format: "2024-10-25"
-        date = new Date(dateString + 'T00:00:00');
+    try {
+      let date;
+      if (typeof dateString === 'string') {
+        if (dateString.includes('T')) {
+          // ISO format: "2024-10-25T00:00:00.000"
+          date = new Date(dateString);
+        } else if (dateString.includes('-')) {
+          // Date format: "2024-10-25"
+          date = new Date(dateString + 'T00:00:00');
+        } else if (dateString.length === 8 && /^\d{8}$/.test(dateString)) {
+          // Format: "20190801" -> "2019-08-01"
+          const year = dateString.substring(0, 4);
+          const month = dateString.substring(4, 6);
+          const day = dateString.substring(6, 8);
+          date = new Date(`${year}-${month}-${day}T00:00:00`);
+        } else {
+          date = new Date(dateString);
+        }
       } else {
         date = new Date(dateString);
       }
-    } else {
-      date = new Date(dateString);
-    }
-    
-    console.log('Parsed date:', date);
-    
-    if (isNaN(date.getTime())) {
-      console.error('Invalid date:', dateString);
+      
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date format:', dateString);
+        return 'Ongeldige datum';
+      }
+      
+      return date.toLocaleDateString('nl-NL');
+    } catch (error) {
+      console.warn('Error formatting date:', error);
       return 'Ongeldige datum';
     }
-    
-    return date.toLocaleDateString('nl-NL');
   };
 
   const formatHandelsbenaming = (merk, handelsbenaming) => {
@@ -337,6 +442,59 @@ const KentekenCheckScreen = () => {
     
     return `${totalPower.toFixed(1)} kW`;
   };
+
+  // Functies voor laatste gezochte resultaten
+  const saveRecentSearch = async (searchData) => {
+    try {
+      const existingSearches = await AsyncStorage.getItem('recentKentekenSearches');
+      let searches = existingSearches ? JSON.parse(existingSearches) : [];
+      
+      // Verwijder als deze kenteken al bestaat
+      searches = searches.filter(search => search.kenteken !== searchData.kenteken);
+      
+      // Voeg nieuwe zoekopdracht toe aan het begin
+      searches.unshift({
+        kenteken: searchData.kenteken,
+        handelsbenaming: searchData.handelsbenaming,
+        merk: searchData.merk,
+        timestamp: new Date().toISOString(),
+        data: searchData
+      });
+      
+      // Beperk tot 5 resultaten
+      searches = searches.slice(0, 5);
+      
+      await AsyncStorage.setItem('recentKentekenSearches', JSON.stringify(searches));
+      setRecentSearches(searches);
+    } catch (error) {
+      console.error('Error saving recent search:', error);
+    }
+  };
+
+  const loadRecentSearches = async () => {
+    try {
+      const searches = await AsyncStorage.getItem('recentKentekenSearches');
+      if (searches) {
+        setRecentSearches(JSON.parse(searches));
+      }
+    } catch (error) {
+      console.error('Error loading recent searches:', error);
+    }
+  };
+
+  const clearRecentSearches = async () => {
+    try {
+      await AsyncStorage.removeItem('recentKentekenSearches');
+      setRecentSearches([]);
+    } catch (error) {
+      console.error('Error clearing recent searches:', error);
+    }
+  };
+
+  // Load recent searches on component mount
+  useEffect(() => {
+    loadRecentSearches();
+  }, []);
 
   const addToCalendar = (title, date, description) => {
     addApkToCalendar(date, title, description);
@@ -381,6 +539,44 @@ const KentekenCheckScreen = () => {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Recent Searches Section */}
+        {recentSearches.length > 0 && !vehicleData && (
+          <View style={styles.recentSearchesSection}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={styles.sectionTitle}>Laatste gezochte kentekens</Text>
+              <TouchableOpacity
+                style={styles.clearRecentButton}
+                onPress={clearRecentSearches}
+              >
+                <Text style={styles.clearRecentButtonText}>Wissen</Text>
+              </TouchableOpacity>
+            </View>
+            
+            {recentSearches.map((search, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.recentSearchCard}
+                onPress={() => {
+                  setKenteken(search.kenteken);
+                  setVehicleData(search.data);
+                }}
+              >
+                <View style={styles.recentSearchHeader}>
+                  <Text style={styles.recentSearchTitle}>
+                    {search.kenteken} - {search.handelsbenaming || search.merk}
+                  </Text>
+                  <Text style={styles.recentSearchTimestamp}>
+                    {new Date(search.timestamp).toLocaleDateString('nl-NL')}
+                  </Text>
+                </View>
+                <Text style={styles.recentSearchInfo}>
+                  {search.merk} • {search.data.voertuigsoort || 'Onbekend'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Results Section */}
         {vehicleData && (
@@ -551,7 +747,66 @@ const KentekenCheckScreen = () => {
               </View>
             </View>
 
-
+            {/* Handige informatie bij kopen */}
+            <View style={styles.buyingInfoCard}>
+              <Text style={styles.buyingInfoTitle}>Handige informatie bij kopen</Text>
+              
+              <View style={styles.buyingInfoRow}>
+                <Text style={styles.buyingInfoLabel}>Jaar laatste registratie tellerstand:</Text>
+                <Text style={styles.buyingInfoValue}>
+                  {vehicleData.jaar_laatste_registratie_tellerstand || 'Niet beschikbaar'}
+                </Text>
+              </View>
+              
+              <View style={styles.buyingInfoRow}>
+                <Text style={styles.buyingInfoLabel}>Tellerstandoordeel:</Text>
+                <Text style={styles.buyingInfoValue}>
+                  {vehicleData.tellerstandoordeel || 'Niet beschikbaar'}
+                </Text>
+              </View>
+              
+              <View style={styles.buyingInfoRow}>
+                <Text style={styles.buyingInfoLabel}>Export indicator:</Text>
+                <Text style={styles.buyingInfoValue}>
+                  {vehicleData.export_indicator || 'Niet beschikbaar'}
+                </Text>
+              </View>
+              
+              <View style={styles.buyingInfoRow}>
+                <Text style={styles.buyingInfoLabel}>Plaats chassisnummer:</Text>
+                <Text style={styles.buyingInfoValue}>
+                  {vehicleData.plaats_chassisnummer || 'Niet beschikbaar'}
+                </Text>
+              </View>
+              
+              <View style={styles.buyingInfoRow}>
+                <Text style={styles.buyingInfoLabel}>Wacht op keuren:</Text>
+                <Text style={styles.buyingInfoValue}>
+                  {vehicleData.wacht_op_keuren || 'Niet beschikbaar'}
+                </Text>
+              </View>
+              
+              <View style={styles.buyingInfoRow}>
+                <Text style={styles.buyingInfoLabel}>Bruto BPM:</Text>
+                <Text style={styles.buyingInfoValue}>
+                  {vehicleData.bruto_bpm ? `€${parseInt(vehicleData.bruto_bpm).toLocaleString('nl-NL')}` : 'Niet beschikbaar'}
+                </Text>
+              </View>
+              
+              <View style={styles.buyingInfoRow}>
+                <Text style={styles.buyingInfoLabel}>Netto BPM:</Text>
+                <Text style={styles.buyingInfoValue}>
+                  {vehicleData.netto_bpm ? `€${parseInt(vehicleData.netto_bpm).toLocaleString('nl-NL')}` : 'Niet beschikbaar'}
+                </Text>
+              </View>
+              
+              <View style={styles.buyingInfoRow}>
+                <Text style={styles.buyingInfoLabel}>BPM tarief:</Text>
+                <Text style={styles.buyingInfoValue}>
+                  {vehicleData.bpm_tarief || 'Niet beschikbaar'}
+                </Text>
+              </View>
+            </View>
 
             {/* Nieuwe zoekopdracht knop */}
             <TouchableOpacity 
