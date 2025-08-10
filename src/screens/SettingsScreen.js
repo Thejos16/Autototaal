@@ -153,16 +153,32 @@ const SettingsScreen = () => {
     }
   };
 
-  const addToCalendar = (title, date, description, vehicleIndex) => {
-    addApkToCalendar(date, title, description, () => {
+  const addToCalendar = (title, date, description, vehicleIndex, isOnderhoud = false) => {
+    let calendarDate = date;
+    
+    // Voor onderhoud: 1 maand voor de datum
+    if (isOnderhoud) {
+      const onderhoudDate = new Date(date);
+      onderhoudDate.setMonth(onderhoudDate.getMonth() - 1);
+      calendarDate = onderhoudDate.toISOString().split('T')[0];
+    }
+    
+    addApkToCalendar(calendarDate, title, description, () => {
       // Mark as added to calendar
       setVehicles(prevVehicles => {
         const updatedVehicles = [...prevVehicles];
         if (updatedVehicles[vehicleIndex]) {
-          updatedVehicles[vehicleIndex] = {
-            ...updatedVehicles[vehicleIndex],
-            agendaToegevoegd: true
-          };
+          if (isOnderhoud) {
+            updatedVehicles[vehicleIndex] = {
+              ...updatedVehicles[vehicleIndex],
+              onderhoudAgendaToegevoegd: true
+            };
+          } else {
+            updatedVehicles[vehicleIndex] = {
+              ...updatedVehicles[vehicleIndex],
+              agendaToegevoegd: true
+            };
+          }
           // Save to AsyncStorage
           AsyncStorage.setItem('savedVehicles', JSON.stringify(updatedVehicles));
         }
@@ -299,8 +315,10 @@ const SettingsScreen = () => {
         ...newVehicle,
         onderhoudType: 'kilometers',
         kilometersPerYear: '',
+        onderhoudInterval: '',
         onderhoudDatum: '',
         onderhoudDagenOver: 0,
+        onderhoudAgendaToegevoegd: false,
       };
       const updatedVehicles = [...vehicles, vehicleToAdd];
       setVehicles(updatedVehicles);
@@ -688,6 +706,27 @@ const SettingsScreen = () => {
       fontSize: 16,
       fontWeight: '600',
     },
+    onderhoudBasisText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 12,
+      marginTop: 8,
+    },
+    removeAgendaButton: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.error || '#FF4444',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginLeft: 8,
+    },
+    removeAgendaButtonText: {
+      color: colors.background,
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
     removeButton: {
       width: 30,
       height: 30,
@@ -889,6 +928,13 @@ const SettingsScreen = () => {
                 </Text>
               </TouchableOpacity>
 
+              {/* Onderhoudsreminder op basis van: */}
+              {showOnderhoudOptions[vehicle.id] && (
+                <Text style={styles.onderhoudBasisText}>
+                  Onderhoudsreminder op basis van:
+                </Text>
+              )}
+
               {/* Onderhoud type selector - alleen zichtbaar na klikken op reminder knop */}
               {showOnderhoudOptions[vehicle.id] && (
                 <View style={styles.onderhoudTypeContainer}>
@@ -953,7 +999,7 @@ const SettingsScreen = () => {
                 <>
                   <TextInput
                     style={styles.inputField}
-                    placeholder="Kilometers per jaar"
+                    placeholder="Hoeveel kilometers rij je per jaar"
                     value={vehicle.kilometersPerYear}
                     onChangeText={(text) => {
                       const updatedVehicles = vehicles.map(v => 
@@ -967,33 +1013,58 @@ const SettingsScreen = () => {
                     keyboardType="numeric"
                   />
                   
-                  {vehicle.kilometersPerYear && (
-                    <TouchableOpacity
-                      style={styles.secondaryButton}
-                      onPress={() => {
-                        // Bereken onderhoud datum op basis van kilometers
-                        const kmPerYear = parseInt(vehicle.kilometersPerYear);
-                        const onderhoudInterval = 15000; // 15.000 km onderhoud interval
-                        const daysUntilOnderhoud = Math.ceil((onderhoudInterval / kmPerYear) * 365);
-                        
-                        const onderhoudDate = new Date();
-                        onderhoudDate.setDate(onderhoudDate.getDate() + daysUntilOnderhoud);
-                        
-                        const updatedVehicles = vehicles.map(v => 
-                          v.id === vehicle.id 
-                            ? { 
-                                ...v, 
-                                onderhoudDatum: onderhoudDate.toISOString().split('T')[0],
-                                onderhoudDagenOver: daysUntilOnderhoud
-                              }
-                            : v
-                        );
-                        setVehicles(updatedVehicles);
-                        saveVehiclesToStorage(updatedVehicles);
-                      }}
-                    >
-                      <Text style={styles.buttonText}>Bereken onderhoud datum</Text>
-                    </TouchableOpacity>
+                  <TextInput
+                    style={styles.inputField}
+                    placeholder="Over hoeveel kilometer moet je auto onderhoud hebben"
+                    value={vehicle.onderhoudInterval}
+                    onChangeText={(text) => {
+                      const updatedVehicles = vehicles.map(v => 
+                        v.id === vehicle.id 
+                          ? { ...v, onderhoudInterval: text }
+                          : v
+                      );
+                      setVehicles(updatedVehicles);
+                      saveVehiclesToStorage(updatedVehicles);
+                    }}
+                    keyboardType="numeric"
+                  />
+                  
+                  {vehicle.kilometersPerYear && vehicle.onderhoudInterval && (
+                    <>
+                      <View style={styles.infoRow}>
+                        <Text style={styles.infoLabel}>Onderhoud in:</Text>
+                        <Text style={styles.infoValue}>
+                          {Math.round((parseInt(vehicle.onderhoudInterval) / parseInt(vehicle.kilometersPerYear)) * 12)} maanden
+                        </Text>
+                      </View>
+                      
+                      <TouchableOpacity
+                        style={styles.secondaryButton}
+                        onPress={() => {
+                          // Bereken onderhoud datum op basis van kilometers
+                          const kmPerYear = parseInt(vehicle.kilometersPerYear);
+                          const onderhoudInterval = parseInt(vehicle.onderhoudInterval);
+                          const monthsUntilOnderhoud = Math.round((onderhoudInterval / kmPerYear) * 12);
+                          
+                          const onderhoudDate = new Date();
+                          onderhoudDate.setMonth(onderhoudDate.getMonth() + monthsUntilOnderhoud);
+                          
+                          const updatedVehicles = vehicles.map(v => 
+                            v.id === vehicle.id 
+                              ? { 
+                                  ...v, 
+                                  onderhoudDatum: onderhoudDate.toISOString().split('T')[0],
+                                  onderhoudDagenOver: Math.ceil((onderhoudInterval / kmPerYear) * 365)
+                                }
+                              : v
+                          );
+                          setVehicles(updatedVehicles);
+                          saveVehiclesToStorage(updatedVehicles);
+                        }}
+                      >
+                        <Text style={styles.buttonText}>Bereken onderhoud datum</Text>
+                      </TouchableOpacity>
+                    </>
                   )}
                 </>
               )}
@@ -1047,15 +1118,45 @@ const SettingsScreen = () => {
                     </Text>
                   </View>
 
-                  <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => addToCalendar(
-                      'Onderhoud inplannen',
-                      vehicle.onderhoudDatum,
-                      `Onderhoud afspraak inplannen voor ${vehicle.handelsbenaming || vehicle.kenteken}`
+                  {/* Onderhoud Agenda Status */}
+                  <View style={styles.statusRow}>
+                    <Text style={styles.infoLabel}>Toegevoegd aan agenda:</Text>
+                    <Text style={[styles.statusText, vehicle.onderhoudAgendaToegevoegd ? styles.statusYes : styles.statusNo]}>
+                      {vehicle.onderhoudAgendaToegevoegd ? 'Ja' : 'Nee'}
+                    </Text>
+                    {vehicle.onderhoudAgendaToegevoegd && (
+                      <TouchableOpacity
+                        style={styles.removeAgendaButton}
+                        onPress={() => {
+                          // Hier zou je de agenda afspraak kunnen verwijderen
+                          const updatedVehicles = vehicles.map(v => 
+                            v.id === vehicle.id 
+                              ? { ...v, onderhoudAgendaToegevoegd: false }
+                              : v
+                          );
+                          setVehicles(updatedVehicles);
+                          saveVehiclesToStorage(updatedVehicles);
+                        }}
+                      >
+                        <Text style={styles.removeAgendaButtonText}>×</Text>
+                      </TouchableOpacity>
                     )}
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.button, vehicle.onderhoudAgendaToegevoegd && styles.buttonDisabled]}
+                    onPress={() => !vehicle.onderhoudAgendaToegevoegd && addToCalendar(
+                      'Reminder onderhoud auto',
+                      vehicle.onderhoudDatum,
+                      `Reminder onderhoud auto ${vehicle.handelsbenaming || vehicle.kenteken}`,
+                      index,
+                      true // 1 maand voor de datum
+                    )}
+                    disabled={vehicle.onderhoudAgendaToegevoegd}
                   >
-                    <Text style={styles.buttonText}>Onderhoud Reminder toevoegen</Text>
+                    <Text style={[styles.buttonText, vehicle.onderhoudAgendaToegevoegd && styles.buttonTextDisabled]}>
+                      {vehicle.onderhoudAgendaToegevoegd ? 'Onderhoud Reminder toegevoegd ✓' : 'Reminder toevoegen aan agenda'}
+                    </Text>
                   </TouchableOpacity>
                 </>
               )}
