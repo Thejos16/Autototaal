@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
 import { buildRDWQuery, getRDWHeaders } from '../config/api';
@@ -495,6 +496,15 @@ const KentekenCheckScreen = () => {
   useEffect(() => {
     loadRecentSearches();
   }, []);
+
+  // Reset screen when coming back to it
+  useFocusEffect(
+    React.useCallback(() => {
+      // Reset kenteken input and vehicle data when screen comes into focus
+      setKenteken('');
+      setVehicleData(null);
+    }, [])
+  );
 
   const addToCalendar = (title, date, description) => {
     addApkToCalendar(date, title, description);
