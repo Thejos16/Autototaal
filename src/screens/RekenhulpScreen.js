@@ -35,7 +35,7 @@ const RekenhulpScreen = ({ navigation }) => {
       description: 'Bepaal wat het goedkoopste voor je is: benzine, diesel of elektrisch',
       icon: '⛽',
       screen: 'VoordeligsteRijden',
-      comingSoon: true,
+      comingSoon: false,
     },
     {
       id: 'verzekering',
@@ -158,7 +158,7 @@ const RekenhulpScreen = ({ navigation }) => {
 
         {/* Calculations Section */}
         <View style={styles.calculationsSection}>
-          <Text style={styles.sectionTitle}>Beschikbare Berekenings</Text>
+          <Text style={styles.sectionTitle}>Beschikbare Berekeningen</Text>
           
           {calculationOptions.map((calculation) => (
             <TouchableOpacity
