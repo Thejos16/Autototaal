@@ -9,6 +9,8 @@ export const RDW_API_CONFIG = {
 // API Endpoints
 export const RDW_ENDPOINTS = {
   VEHICLES: `${RDW_API_CONFIG.BASE_URL}/${RDW_API_CONFIG.DATASET_ID}.json`,
+  DEFECTS: `${RDW_API_CONFIG.BASE_URL}/a34c-vvps.json`,
+  FUELS: `${RDW_API_CONFIG.BASE_URL}/8ys7-d773.json`,
 };
 
 // Helper function to build query URL
@@ -16,6 +18,18 @@ export const buildRDWQuery = (kenteken) => {
   // Query without $select to get all available fields
   const query = `?$where=kenteken='${kenteken.toUpperCase()}'`;
   return `${RDW_ENDPOINTS.VEHICLES}${query}`;
+};
+
+// Helper function to build defects query URL
+export const buildDefectsQuery = (kenteken) => {
+  const query = `?$where=kenteken='${kenteken.toUpperCase()}'`;
+  return `${RDW_ENDPOINTS.DEFECTS}${query}`;
+};
+
+// Helper function to build fuels query URL
+export const buildFuelsQuery = (kenteken) => {
+  const query = `?$where=kenteken='${kenteken.toUpperCase()}'`;
+  return `${RDW_ENDPOINTS.FUELS}${query}`;
 };
 
 // Helper function to get headers with app token for higher rate limits

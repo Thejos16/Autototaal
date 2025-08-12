@@ -13,7 +13,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
-import { buildRDWQuery, getRDWHeaders } from '../config/api';
+import { buildRDWQuery, buildDefectsQuery, buildFuelsQuery, getRDWHeaders } from '../config/api';
 import { addApkToCalendar } from '../utils/calendar';
 
 const KentekenCheckScreen = () => {
@@ -21,6 +21,8 @@ const KentekenCheckScreen = () => {
   const [kenteken, setKenteken] = useState('');
   const [loading, setLoading] = useState(false);
   const [vehicleData, setVehicleData] = useState(null);
+  const [defectsData, setDefectsData] = useState(null);
+  const [fuelsData, setFuelsData] = useState(null);
   const [recentSearches, setRecentSearches] = useState([]);
 
   const styles = StyleSheet.create({
@@ -304,34 +306,34 @@ const KentekenCheckScreen = () => {
 
     setLoading(true);
     setVehicleData(null);
+    setDefectsData(null);
+    setFuelsData(null);
 
     try {
       const cleanKenteken = kenteken.replace(/-/g, '');
-      const queryUrl = buildRDWQuery(cleanKenteken);
       
+      // Fetch vehicle data
+      const vehicleQueryUrl = buildRDWQuery(cleanKenteken);
       console.log('Searching for kenteken:', cleanKenteken);
-      console.log('Query URL:', queryUrl);
+      console.log('Vehicle Query URL:', vehicleQueryUrl);
       
-      const response = await fetch(queryUrl, {
+      const vehicleResponse = await fetch(vehicleQueryUrl, {
         method: 'GET',
         headers: getRDWHeaders(),
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Response error text:', errorText);
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      if (!vehicleResponse.ok) {
+        const errorText = await vehicleResponse.text();
+        console.error('Vehicle response error text:', errorText);
+        throw new Error(`HTTP error! status: ${vehicleResponse.status}, message: ${errorText}`);
       }
 
-      const data = await response.json();
-      console.log('Response data:', data);
+      const vehicleData = await vehicleResponse.json();
+      console.log('Vehicle response data:', vehicleData);
       
-      if (data && data.length > 0) {
-        console.log('Found vehicle data:', data[0]);
-        console.log('Available fields:', Object.keys(data[0]));
+      if (vehicleData && vehicleData.length > 0) {
+        console.log('Found vehicle data:', vehicleData[0]);
+        console.log('Available fields:', Object.keys(vehicleData[0]));
         
         // Debug: Log specifieke velden voor koopinformatie
         const buyingInfoFields = [
@@ -347,12 +349,55 @@ const KentekenCheckScreen = () => {
         
         console.log('Buying info fields:');
         buyingInfoFields.forEach(field => {
-          console.log(`${field}:`, data[0][field]);
+          console.log(`${field}:`, vehicleData[0][field]);
         });
         
-        setVehicleData(data[0]);
+        setVehicleData(vehicleData[0]);
+        
+        // Fetch defects data
+        try {
+          const defectsQueryUrl = buildDefectsQuery(cleanKenteken);
+          console.log('Defects Query URL:', defectsQueryUrl);
+          
+          const defectsResponse = await fetch(defectsQueryUrl, {
+            method: 'GET',
+            headers: getRDWHeaders(),
+          });
+          
+          if (defectsResponse.ok) {
+            const defectsData = await defectsResponse.json();
+            console.log('Defects response data:', defectsData);
+            if (defectsData && defectsData.length > 0) {
+              setDefectsData(defectsData[0]);
+            }
+          }
+        } catch (defectsError) {
+          console.error('Error fetching defects data:', defectsError);
+        }
+        
+        // Fetch fuels data
+        try {
+          const fuelsQueryUrl = buildFuelsQuery(cleanKenteken);
+          console.log('Fuels Query URL:', fuelsQueryUrl);
+          
+          const fuelsResponse = await fetch(fuelsQueryUrl, {
+            method: 'GET',
+            headers: getRDWHeaders(),
+          });
+          
+          if (fuelsResponse.ok) {
+            const fuelsData = await fuelsResponse.json();
+            console.log('Fuels response data:', fuelsData);
+            if (fuelsData && fuelsData.length > 0) {
+              setFuelsData(fuelsData[0]);
+            }
+          }
+        } catch (fuelsError) {
+          console.error('Error fetching fuels data:', fuelsError);
+        }
+        
         // Sla de zoekopdracht op
-        await saveRecentSearch(data[0]);
+        await saveRecentSearch(vehicleData[0]);
       } else {
         setVehicleData(null);
         Alert.alert('Geen resultaat', 'Geen voertuig gevonden met dit kenteken.');
@@ -592,6 +637,31 @@ const KentekenCheckScreen = () => {
         {vehicleData && (
           <View style={styles.resultsSection}>
             <Text style={styles.sectionTitle}>Voertuig Informatie</Text>
+            
+            {/* Nieuwe API test velden */}
+            {(defectsData || fuelsData) && (
+              <View style={styles.segmentCard}>
+                <Text style={styles.segmentTitle}>API Test Resultaten</Text>
+                
+                {defectsData && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Meld tijd door keuringsinstantie:</Text>
+                    <Text style={styles.infoValue}>
+                      {defectsData.meld_tijd_door_keuringsinstantie || 'Niet beschikbaar'}
+                    </Text>
+                  </View>
+                )}
+                
+                {fuelsData && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Netto maximum vermogen:</Text>
+                    <Text style={styles.infoValue}>
+                      {fuelsData.nettomaximumvermogen ? `${fuelsData.nettomaximumvermogen} kW` : 'Niet beschikbaar'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
             
             {/* Algemene voertuiginformatie */}
             <View style={styles.segmentCard}>
