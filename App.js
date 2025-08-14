@@ -15,6 +15,7 @@ import InfohoekScreen from './src/screens/InfohoekScreen';
 import BpmCheckScreen from './src/screens/BpmCheckScreen';
 import BijtellingCheckScreen from './src/screens/BijtellingCheckScreen';
 import VoordeligsteRijdenScreen from './src/screens/VoordeligsteRijdenScreen';
+import VoordeligsteRijdenResultScreen from './src/screens/VoordeligsteRijdenResultScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
@@ -193,6 +194,17 @@ const AppContent = () => {
             component={VoordeligsteRijdenScreen}
             options={{ 
               title: 'Voordeligste Rijden',
+              headerStyle: {
+                backgroundColor: colors.card,
+              },
+              headerTintColor: colors.text,
+            }}
+          />
+          <Stack.Screen 
+            name="VoordeligsteRijdenResult" 
+            component={VoordeligsteRijdenResultScreen}
+            options={{ 
+              title: 'Resultaten',
               headerStyle: {
                 backgroundColor: colors.card,
               },
