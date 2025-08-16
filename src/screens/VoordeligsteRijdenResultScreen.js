@@ -165,75 +165,76 @@ const VoordeligsteRijdenResultScreen = ({ navigation, route }) => {
         <View style={styles.resultatenContainer}>
           <Text style={styles.resultatenTitle}>Jaarlijkse Kosten</Text>
           
-          {/* Auto 1 */}
-          <View style={styles.autoSection}>
-            <Text style={styles.autoTitle}>Auto 1 - {resultaten.auto1.aandrijving}</Text>
-            <View style={styles.resultatenRow}>
-              <Text style={styles.resultatenLabel}>Verbruik:</Text>
-              <Text style={styles.resultatenValue}>
-                {resultaten.auto1.verbruik} {getVerbruikLabel(resultaten.auto1.aandrijving)}
-              </Text>
+          {/* Dynamische Auto's */}
+          {resultaten.autos.map((auto, index) => (
+            <View key={auto.id}>
+              <View style={styles.autoSection}>
+                <Text style={[
+                  styles.autoTitle,
+                  auto.id === resultaten.voordeligsteId && { color: colors.primary }
+                ]}>
+                  {auto.naam} - {auto.aandrijving}
+                  {auto.id === resultaten.voordeligsteId && ' ⭐'}
+                </Text>
+                <View style={styles.resultatenRow}>
+                  <Text style={styles.resultatenLabel}>Verbruik:</Text>
+                  <Text style={styles.resultatenValue}>
+                    {auto.verbruik} {getVerbruikLabel(auto.aandrijving)}
+                  </Text>
+                </View>
+                <View style={styles.resultatenRow}>
+                  <Text style={styles.resultatenLabel}>Prijs:</Text>
+                  <Text style={styles.resultatenValue}>
+                    € {auto.prijs.toFixed(2)} per {auto.aandrijving === 'Elektrisch' ? 'kWh' : 'liter'}
+                  </Text>
+                </View>
+                <View style={styles.resultatenRow}>
+                  <Text style={styles.resultatenLabel}>Jaarlijkse brandstofkosten:</Text>
+                  <Text style={[
+                    styles.resultatenValue,
+                    auto.id === resultaten.voordeligsteId && { color: colors.primary, fontWeight: 'bold' }
+                  ]}>
+                    € {formatNumber(auto.totaleKosten)}
+                  </Text>
+                </View>
+              </View>
+              {/* Divider behalve voor laatste auto */}
+              {index < resultaten.autos.length - 1 && <View style={styles.resultatenDivider} />}
             </View>
-            <View style={styles.resultatenRow}>
-              <Text style={styles.resultatenLabel}>Prijs:</Text>
-              <Text style={styles.resultatenValue}>
-                € {resultaten.auto1.prijs.toFixed(2)} per {resultaten.auto1.aandrijving === 'Elektrisch' ? 'kWh' : 'liter'}
-              </Text>
-            </View>
-            <View style={styles.resultatenRow}>
-              <Text style={styles.resultatenLabel}>Jaarlijkse kosten:</Text>
-              <Text style={styles.resultatenValue}>
-                € {formatNumber(resultaten.auto1.jaarlijkseKosten)}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.resultatenDivider} />
-
-          {/* Auto 2 */}
-          <View style={styles.autoSection}>
-            <Text style={styles.autoTitle}>Auto 2 - {resultaten.auto2.aandrijving}</Text>
-            <View style={styles.resultatenRow}>
-              <Text style={styles.resultatenLabel}>Verbruik:</Text>
-              <Text style={styles.resultatenValue}>
-                {resultaten.auto2.verbruik} {getVerbruikLabel(resultaten.auto2.aandrijving)}
-              </Text>
-            </View>
-            <View style={styles.resultatenRow}>
-              <Text style={styles.resultatenLabel}>Prijs:</Text>
-              <Text style={styles.resultatenValue}>
-                € {resultaten.auto2.prijs.toFixed(2)} per {resultaten.auto2.aandrijving === 'Elektrisch' ? 'kWh' : 'liter'}
-              </Text>
-            </View>
-            <View style={styles.resultatenRow}>
-              <Text style={styles.resultatenLabel}>Jaarlijkse kosten:</Text>
-              <Text style={styles.resultatenValue}>
-                € {formatNumber(resultaten.auto2.jaarlijkseKosten)}
-              </Text>
-            </View>
-          </View>
+          ))}
 
           {/* Vergelijking */}
           <View style={styles.vergelijkingSection}>
             <Text style={styles.vergelijkingTitle}>Vergelijking</Text>
             <View style={styles.resultatenRow}>
-              <Text style={styles.resultatenLabel}>Voordeligste:</Text>
+              <Text style={styles.resultatenLabel}>Voordeligste auto:</Text>
               <Text style={[styles.resultatenValue, { color: colors.primary }]}>
                 {resultaten.voordeligste}
               </Text>
             </View>
-            <View style={styles.resultatenRow}>
-              <Text style={styles.resultatenLabel}>Verschil per jaar:</Text>
-              <Text style={styles.resultatenValue}>
-                € {formatNumber(resultaten.verschil)}
-              </Text>
-            </View>
+            {resultaten.autos.length > 1 && (
+              <View style={styles.resultatenRow}>
+                <Text style={styles.resultatenLabel}>
+                  {resultaten.autos.length === 2 ? 'Verschil in brandstofkosten per jaar:' : 'Max. verschil in brandstofkosten per jaar:'}
+                </Text>
+                <Text style={styles.resultatenValue}>
+                  € {formatNumber(resultaten.verschil)}
+                </Text>
+              </View>
+            )}
             <View style={styles.resultatenRow}>
               <Text style={styles.resultatenLabel}>Kilometers per jaar:</Text>
               <Text style={styles.resultatenValue}>
                 {resultaten.kilometersPerYear.toLocaleString('nl-NL')} km
               </Text>
             </View>
+            <View style={styles.resultatenRow}>
+              <Text style={styles.resultatenLabel}>Aantal auto's vergeleken:</Text>
+              <Text style={styles.resultatenValue}>
+                {resultaten.autos.length}
+              </Text>
+            </View>
+
           </View>
         </View>
 

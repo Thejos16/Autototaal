@@ -12,32 +12,39 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
-import { buildFuelsQuery, getRDWHeaders } from '../config/api';
+import { buildFuelsQuery, buildRDWQuery, getRDWHeaders } from '../config/api';
 
 const VoordeligsteRijdenScreen = ({ navigation }) => {
   const { colors } = useTheme();
   const [currentStep, setCurrentStep] = useState(1);
   const [kilometersPerYear, setKilometersPerYear] = useState('');
-  const [showDropdown1, setShowDropdown1] = useState(false);
-  const [showDropdown2, setShowDropdown2] = useState(false);
+
   
-  // Auto 1 state
-  const [aandrijving1, setAandrijving1] = useState('Benzine');
-  const [verbruik1, setVerbruik1] = useState('');
-  const [prijs1, setPrijs1] = useState('');
-  const [inputMode1, setInputMode1] = useState(null); // null, 'manual' or 'kenteken'
-  const [kenteken1, setKenteken1] = useState('');
-  const [loading1, setLoading1] = useState(false);
-  const [dataRetrieved1, setDataRetrieved1] = useState(false); // Track if data was retrieved
-  
-  // Auto 2 state
-  const [aandrijving2, setAandrijving2] = useState('Benzine');
-  const [verbruik2, setVerbruik2] = useState('');
-  const [prijs2, setPrijs2] = useState('');
-  const [inputMode2, setInputMode2] = useState(null); // null, 'manual' or 'kenteken'
-  const [kenteken2, setKenteken2] = useState('');
-  const [loading2, setLoading2] = useState(false);
-  const [dataRetrieved2, setDataRetrieved2] = useState(false); // Track if data was retrieved
+  // Dynamische auto's state
+  const [autos, setAutos] = useState([
+    {
+      id: 1,
+      aandrijving: 'Benzine',
+      verbruik: '',
+      prijs: '',
+      inputMode: null, // null, 'manual' or 'kenteken'
+      kenteken: '',
+      loading: false,
+      dataRetrieved: false,
+      showDropdown: false
+    },
+    {
+      id: 2,
+      aandrijving: 'Benzine',
+      verbruik: '',
+      prijs: '',
+      inputMode: null,
+      kenteken: '',
+      loading: false,
+      dataRetrieved: false,
+      showDropdown: false
+    }
+  ]);
 
   const aandrijvingOpties = ['Benzine', 'Diesel', 'Elektrisch', 'LPG'];
 
@@ -49,16 +56,95 @@ const VoordeligsteRijdenScreen = ({ navigation }) => {
     return parseFloat(normalizedValue);
   };
 
-  // Functie om brandstofgegevens op te halen via kenteken
-  const fetchFuelData = async (kenteken, setAandrijving, setVerbruik, setLoading, setDataRetrieved) => {
-    if (!kenteken || kenteken.replace(/-/g, '').length < 6) {
+  // Functie om een nieuwe auto toe te voegen
+  const addAuto = () => {
+    const newId = Math.max(...autos.map(a => a.id)) + 1;
+    const newAuto = {
+      id: newId,
+      aandrijving: 'Benzine',
+      verbruik: '',
+      prijs: '',
+      inputMode: null,
+      kenteken: '',
+      loading: false,
+      dataRetrieved: false,
+      showDropdown: false
+    };
+    setAutos([...autos, newAuto]);
+  };
+
+  // Functie om een auto bij te werken
+  const updateAuto = (id, updates) => {
+    setAutos(prevAutos =>
+      prevAutos.map(auto =>
+        auto.id === id ? { ...auto, ...updates } : auto
+      )
+    );
+  };
+
+  // Functie om een auto te verwijderen (alleen mogelijk als er meer dan 2 auto's zijn)
+  const removeAuto = (id) => {
+    if (autos.length > 2) {
+      setAutos(prevAutos => prevAutos.filter(auto => auto.id !== id));
+    }
+  };
+
+  // Functie om voertuiggegevens op te halen via kenteken
+  const fetchVehicleData = async (autoId) => {
+    const auto = autos.find(a => a.id === autoId);
+    if (!auto || !auto.kenteken || auto.kenteken.replace(/-/g, '').length < 6) {
       Alert.alert('Fout', 'Voer een geldig kenteken in (minimaal 6 karakters)');
       return;
     }
 
-    setLoading(true);
+    updateAuto(autoId, { loading: true });
     try {
-      const cleanKenteken = kenteken.replace(/-/g, '');
+      const cleanKenteken = auto.kenteken.replace(/-/g, '');
+      const queryUrl = buildRDWQuery(cleanKenteken);
+      
+      console.log('Fetching vehicle data for kenteken:', cleanKenteken);
+      console.log('Query URL:', queryUrl);
+      
+      const response = await fetch(queryUrl, {
+        method: 'GET',
+        headers: getRDWHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Vehicle API Response:', data);
+      
+      if (data && data.length > 0) {
+        const vehicleData = data[0];
+        console.log('Vehicle data:', vehicleData);
+        
+        // Nu brandstofgegevens ophalen
+        await fetchFuelData(autoId);
+      } else {
+        updateAuto(autoId, { loading: false });
+        Alert.alert('Fout', 'Geen voertuiggegevens gevonden voor dit kenteken.');
+      }
+    } catch (error) {
+      console.error('Error fetching vehicle data:', error);
+      updateAuto(autoId, { loading: false });
+      Alert.alert('Fout', 'Er is een fout opgetreden bij het ophalen van de voertuiggegevens.');
+    }
+  };
+
+  // Functie om brandstofgegevens op te halen via kenteken
+  const fetchFuelData = async (autoId) => {
+    const auto = autos.find(a => a.id === autoId);
+    if (!auto || !auto.kenteken || auto.kenteken.replace(/-/g, '').length < 6) {
+      Alert.alert('Fout', 'Voer een geldig kenteken in (minimaal 6 karakters)');
+      return;
+    }
+
+    updateAuto(autoId, { loading: true });
+    try {
+      const cleanKenteken = auto.kenteken.replace(/-/g, '');
       const queryUrl = buildFuelsQuery(cleanKenteken);
       
       console.log('Fetching fuel data for kenteken:', cleanKenteken);
@@ -97,7 +183,6 @@ const VoordeligsteRijdenScreen = ({ navigation }) => {
         }
         
         console.log('Mapped aandrijving:', mappedAandrijving);
-        setAandrijving(mappedAandrijving);
         
         // Gecombineerd verbruik instellen - probeer verschillende veldnamen
         let verbruikValue = null;
@@ -113,65 +198,107 @@ const VoordeligsteRijdenScreen = ({ navigation }) => {
           console.log('Verbruik gecombineerd gevonden:', verbruikValue);
         }
         
+        let cleanVerbruik = '';
         if (verbruikValue) {
           // Zorg ervoor dat we een getal hebben, niet een string met komma's
-          const cleanValue = verbruikValue.toString().replace(',', '.');
-          console.log('Clean verbruik waarde:', cleanValue);
-          setVerbruik(cleanValue);
+          cleanVerbruik = verbruikValue.toString().replace(',', '.');
+          console.log('Clean verbruik waarde:', cleanVerbruik);
         } else {
           console.log('Geen verbruik gegevens gevonden in:', fuelData);
         }
-        
-        // Mark data as retrieved
-        setDataRetrieved(true);
+
+        // Update auto with retrieved data
+        updateAuto(autoId, {
+          aandrijving: mappedAandrijving,
+          verbruik: cleanVerbruik,
+          dataRetrieved: true,
+          loading: false
+        });
         
         Alert.alert('Succes', 'Voertuiggegevens succesvol opgehaald!');
       } else {
+        updateAuto(autoId, { loading: false });
         Alert.alert('Fout', 'Geen voertuiggegevens gevonden voor dit kenteken.');
       }
     } catch (error) {
       console.error('Error fetching fuel data:', error);
+      updateAuto(autoId, { loading: false });
       Alert.alert('Fout', 'Er is een fout opgetreden bij het ophalen van de voertuiggegevens.');
-    } finally {
-      setLoading(false);
     }
+  };
+
+
+
+  // Functie om te controleren of alle vereiste velden ingevuld zijn
+  const isFormComplete = () => {
+    // Controleer of kilometers per jaar ingevuld is
+    if (!kilometersPerYear) return false;
+    
+    // Controleer of alle auto's compleet zijn (minimaal 2 auto's)
+    if (autos.length < 2) return false;
+    
+    return autos.every(auto => {
+      if (!auto.inputMode) return false;
+      
+      if (auto.inputMode === 'manual') {
+        return auto.verbruik && auto.prijs;
+      } else if (auto.inputMode === 'kenteken') {
+        return auto.dataRetrieved && auto.verbruik && auto.prijs;
+      }
+      return false;
+    });
   };
 
   const berekenKosten = () => {
     // Valideer input
-    if (!kilometersPerYear || !verbruik1 || !prijs1 || !verbruik2 || !prijs2) {
-      alert('Vul alle velden in om de berekening uit te voeren.');
+    if (!isFormComplete()) {
+      Alert.alert('Onvolledige gegevens', 'Vul alle velden in om de berekening uit te voeren.');
       return;
     }
 
     const kmPerJaar = parseDutchFloat(kilometersPerYear);
-    const verbruik1Value = parseDutchFloat(verbruik1);
-    const prijs1Value = parseDutchFloat(prijs1);
-    const verbruik2Value = parseDutchFloat(verbruik2);
-    const prijs2Value = parseDutchFloat(prijs2);
+    
+    // Bereken kosten voor alle auto's
+    const autoResultaten = autos.map((auto, index) => {
+      const verbruikValue = parseDutchFloat(auto.verbruik);
+      const prijsValue = parseDutchFloat(auto.prijs);
+      const brandstofKosten = (kmPerJaar / 100) * verbruikValue * prijsValue;
+      
+      // Debug informatie
+      console.log(`Auto ${index + 1} brandstof berekening:`, {
+        aandrijving: auto.aandrijving,
+        verbruik: verbruikValue,
+        prijs: prijsValue,
+        brandstofKosten: brandstofKosten
+      });
+      
+      return {
+        id: auto.id,
+        naam: `Auto ${index + 1}`,
+        brandstofKosten,
+        totaleKosten: brandstofKosten, // Alleen brandstofkosten
+        aandrijving: auto.aandrijving,
+        verbruik: verbruikValue,
+        prijs: prijsValue
+      };
+    });
 
-    // Gecorrigeerde berekening: jaarlijkse kilometers / 100 * liter per 100 km * benzine prijs
-    const jaarlijkseKosten1 = (kmPerJaar / 100) * verbruik1Value * prijs1Value;
-    const jaarlijkseKosten2 = (kmPerJaar / 100) * verbruik2Value * prijs2Value;
+    // Vind de voordeligste auto
+    const voordeligsteAuto = autoResultaten.reduce((prev, current) => 
+      prev.totaleKosten < current.totaleKosten ? prev : current
+    );
 
-    // Bepaal welke auto voordeliger is
-    const verschil = Math.abs(jaarlijkseKosten1 - jaarlijkseKosten2);
-    const voordeligste = jaarlijkseKosten1 < jaarlijkseKosten2 ? 'Auto 1' : 'Auto 2';
+    // Bereken verschil met de duurste auto
+    const duursteAuto = autoResultaten.reduce((prev, current) => 
+      prev.totaleKosten > current.totaleKosten ? prev : current
+    );
+    
+    const verschil = duursteAuto.totaleKosten - voordeligsteAuto.totaleKosten;
 
     const resultaten = {
-      auto1: {
-        jaarlijkseKosten: jaarlijkseKosten1,
-        aandrijving: aandrijving1,
-        verbruik: verbruik1Value,
-        prijs: prijs1Value
-      },
-      auto2: {
-        jaarlijkseKosten: jaarlijkseKosten2,
-        aandrijving: aandrijving2,
-        verbruik: verbruik2Value,
-        prijs: prijs2Value
-      },
-      voordeligste,
+      autos: autoResultaten,
+      voordeligste: voordeligsteAuto.naam,
+      voordeligsteId: voordeligsteAuto.id,
       verschil,
       kilometersPerYear: kmPerJaar
     };
@@ -330,9 +457,54 @@ const VoordeligsteRijdenScreen = ({ navigation }) => {
       marginTop: 20,
       marginBottom: 20,
     },
+    berekenKnopDisabled: {
+      backgroundColor: colors.primary + '40', // 40% opacity voor lichtblauw effect
+      borderRadius: 12,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 20,
+      marginBottom: 20,
+    },
     berekenKnopText: {
       color: colors.background,
       fontSize: 18,
+      fontWeight: 'bold',
+    },
+    berekenKnopTextDisabled: {
+      color: colors.background + 'CC', // Lichtere kleur voor disabled text
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    autoToevoegenKnop: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      alignItems: 'center',
+      marginTop: 20,
+      marginBottom: 10,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      borderStyle: 'dashed',
+    },
+    autoToevoegenKnopText: {
+      color: colors.primary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    autoRemoveButton: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      backgroundColor: colors.error,
+      borderRadius: 15,
+      width: 30,
+      height: 30,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    autoRemoveButtonText: {
+      color: colors.background,
+      fontSize: 16,
       fontWeight: 'bold',
     },
     resultatenContainer: {
@@ -449,6 +621,39 @@ const VoordeligsteRijdenScreen = ({ navigation }) => {
       borderWidth: 1,
       borderColor: colors.primary + '30',
     },
+    modalContent: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 20,
+      margin: 20,
+      maxHeight: '80%',
+      minWidth: 300,
+    },
+    modalTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 20,
+      textAlign: 'center',
+    },
+    modalScrollView: {
+      maxHeight: 300,
+    },
+    modalOption: {
+      padding: 16,
+      borderRadius: 8,
+      marginBottom: 8,
+      backgroundColor: colors.background,
+    },
+    modalOptionText: {
+      fontSize: 16,
+      color: colors.text,
+    },
+    modalOptionTextSelected: {
+      color: colors.primary,
+      fontWeight: 'bold',
+    },
+
   });
 
   const getVerbruikLabel = (aandrijving) => {
@@ -517,310 +722,197 @@ const VoordeligsteRijdenScreen = ({ navigation }) => {
           />
         </View>
 
-        {/* Auto 1 */}
-        <View style={styles.autoSection}>
-          <Text style={styles.autoTitle}>Auto 1</Text>
-          <View style={styles.autoCard}>
-            {/* Input Mode Buttons */}
-            <Text style={styles.inputLabel}>Kies een invoermethode:</Text>
-            <View style={styles.inputModeContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.inputModeButton,
-                  inputMode1 === 'manual' && styles.inputModeButtonActive
-                ]}
-                onPress={() => {
-                  setInputMode1('manual');
-                  setDataRetrieved1(false);
-                  setVerbruik1('');
-                  setAandrijving1('Benzine');
-                }}
-              >
-                <Text style={[
-                  styles.inputModeButtonText,
-                  inputMode1 === 'manual' && styles.inputModeButtonTextActive
-                ]}>
-                  Handmatige Invoer
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.inputModeButton,
-                  inputMode1 === 'kenteken' && styles.inputModeButtonActive
-                ]}
-                onPress={() => {
-                  setInputMode1('kenteken');
-                  setDataRetrieved1(false);
-                  setVerbruik1('');
-                  setAandrijving1('Benzine');
-                }}
-              >
-                <Text style={[
-                  styles.inputModeButtonText,
-                  inputMode1 === 'kenteken' && styles.inputModeButtonTextActive
-                ]}>
-                  Kenteken Check
-                </Text>
-              </TouchableOpacity>
-            </View>
 
-            {inputMode1 === 'manual' && (
-              <>
-                {/* Aandrijving Dropdown */}
-                <Text style={styles.inputLabel}>Aandrijving</Text>
+
+        {/* Dynamische Auto's */}
+        {autos.map((auto, index) => (
+          <View key={auto.id} style={styles.autoSection}>
+            <Text style={styles.autoTitle}>Auto {index + 1}</Text>
+            <View style={[styles.autoCard, { position: 'relative' }]}>
+              {/* Remove button - alleen zichtbaar als er meer dan 2 auto's zijn */}
+              {autos.length > 2 && (
                 <TouchableOpacity
-                  style={styles.dropdownButton}
-                  onPress={() => setShowDropdown1(true)}
+                  style={styles.autoRemoveButton}
+                  onPress={() => removeAuto(auto.id)}
                 >
-                  <Text style={styles.dropdownButtonText}>{aandrijving1}</Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
+                  <Text style={styles.autoRemoveButtonText}>×</Text>
                 </TouchableOpacity>
+              )}
 
-                {/* Verbruik Input */}
-                <Text style={styles.inputLabel}>{getVerbruikLabel(aandrijving1)}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={verbruik1}
-                  onChangeText={setVerbruik1}
-                  placeholder={`Bijv. ${aandrijving1 === 'Elektrisch' ? '15' : '6.5'}`}
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="numeric"
-                />
-              </>
-            )}
-
-            {inputMode1 === 'kenteken' && (
-              <>
-                {/* Kenteken Input */}
-                <Text style={styles.inputLabel}>Kenteken</Text>
-                <View style={styles.kentekenContainer}>
-                  <TextInput
-                    style={[styles.input, { flex: 1, marginRight: 10 }]}
-                    value={kenteken1}
-                    onChangeText={setKenteken1}
-                    placeholder="Bijv. AB-12-CD"
-                    placeholderTextColor={colors.textSecondary}
-                    autoCapitalize="characters"
-                  />
-                  <TouchableOpacity
-                    style={styles.searchButton}
-                    onPress={() => fetchFuelData(kenteken1, setAandrijving1, setVerbruik1, setLoading1, setDataRetrieved1)}
-                    disabled={loading1}
-                  >
-                    {loading1 ? (
-                      <ActivityIndicator color={colors.background} size="small" />
-                    ) : (
-                      <Text style={styles.searchButtonText}>🔍</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-                
-                {/* Opgehaalde gegevens - alleen zichtbaar na het ophalen */}
-                {dataRetrieved1 && (
-                  <>
-                    <Text style={styles.inputLabel}>Aandrijving</Text>
-                    <View style={styles.retrievedDataField}>
-                      <Text style={styles.retrievedDataText}>
-                        {aandrijving1}
-                      </Text>
-                    </View>
-                    
-                    <Text style={styles.inputLabel}>{getVerbruikLabel(aandrijving1)}</Text>
-                    <View style={styles.retrievedDataField}>
-                      <Text style={styles.retrievedDataText}>
-                        {verbruik1}
-                      </Text>
-                    </View>
-                  </>
-                )}
-              </>
-            )}
-
-            {/* Prijs Input - alleen zichtbaar na het ophalen van gegevens of bij handmatige invoer */}
-            {(inputMode1 === 'manual' || (inputMode1 === 'kenteken' && dataRetrieved1)) && (
-              <>
-                <Text style={styles.inputLabel}>{getPrijsLabel(aandrijving1)}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={prijs1}
-                  onChangeText={setPrijs1}
-                  placeholder={getPrijsPlaceholder(aandrijving1)}
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="numeric"
-                />
-              </>
-            )}
-          </View>
-        </View>
-
-        {/* Auto 2 */}
-        <View style={styles.autoSection}>
-          <Text style={styles.autoTitle}>Auto 2</Text>
-          <View style={styles.autoCard}>
-            {/* Input Mode Buttons */}
-            <Text style={styles.inputLabel}>Kies een invoermethode:</Text>
-            <View style={styles.inputModeContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.inputModeButton,
-                  inputMode2 === 'manual' && styles.inputModeButtonActive
-                ]}
-                onPress={() => {
-                  setInputMode2('manual');
-                  setDataRetrieved2(false);
-                  setVerbruik2('');
-                  setAandrijving2('Benzine');
-                }}
-              >
-                <Text style={[
-                  styles.inputModeButtonText,
-                  inputMode2 === 'manual' && styles.inputModeButtonTextActive
-                ]}>
-                  Handmatige Invoer
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.inputModeButton,
-                  inputMode2 === 'kenteken' && styles.inputModeButtonActive
-                ]}
-                onPress={() => {
-                  setInputMode2('kenteken');
-                  setDataRetrieved2(false);
-                  setVerbruik2('');
-                  setAandrijving2('Benzine');
-                }}
-              >
-                <Text style={[
-                  styles.inputModeButtonText,
-                  inputMode2 === 'kenteken' && styles.inputModeButtonTextActive
-                ]}>
-                  Kenteken Check
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {inputMode2 === 'manual' && (
-              <>
-                {/* Aandrijving Dropdown */}
-                <Text style={styles.inputLabel}>Aandrijving</Text>
+              {/* Input Mode Buttons */}
+              <Text style={styles.inputLabel}>Kies een invoermethode:</Text>
+              <View style={styles.inputModeContainer}>
                 <TouchableOpacity
-                  style={styles.dropdownButton}
-                  onPress={() => setShowDropdown2(true)}
+                  style={[
+                    styles.inputModeButton,
+                    auto.inputMode === 'manual' && styles.inputModeButtonActive
+                  ]}
+                  onPress={() => {
+                    updateAuto(auto.id, {
+                      inputMode: 'manual',
+                      dataRetrieved: false,
+                      verbruik: '',
+                      aandrijving: 'Benzine'
+                    });
+                  }}
                 >
-                  <Text style={styles.dropdownButtonText}>{aandrijving2}</Text>
-                  <Text style={styles.dropdownArrow}>▼</Text>
+                  <Text style={[
+                    styles.inputModeButtonText,
+                    auto.inputMode === 'manual' && styles.inputModeButtonTextActive
+                  ]}>
+                    Handmatige Invoer
+                  </Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.inputModeButton,
+                    auto.inputMode === 'kenteken' && styles.inputModeButtonActive
+                  ]}
+                  onPress={() => {
+                    updateAuto(auto.id, {
+                      inputMode: 'kenteken',
+                      dataRetrieved: false,
+                      verbruik: '',
+                      aandrijving: 'Benzine'
+                    });
+                  }}
+                >
+                  <Text style={[
+                    styles.inputModeButtonText,
+                    auto.inputMode === 'kenteken' && styles.inputModeButtonTextActive
+                  ]}>
+                    Kenteken Check
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
-                {/* Verbruik Input */}
-                <Text style={styles.inputLabel}>{getVerbruikLabel(aandrijving2)}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={verbruik2}
-                  onChangeText={setVerbruik2}
-                  placeholder={`Bijv. ${aandrijving2 === 'Elektrisch' ? '15' : '6.5'}`}
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="numeric"
-                />
-              </>
-            )}
-
-            {inputMode2 === 'kenteken' && (
-              <>
-                {/* Kenteken Input */}
-                <Text style={styles.inputLabel}>Kenteken</Text>
-                <View style={styles.kentekenContainer}>
-                  <TextInput
-                    style={[styles.input, { flex: 1, marginRight: 10 }]}
-                    value={kenteken2}
-                    onChangeText={setKenteken2}
-                    placeholder="Bijv. AB-12-CD"
-                    placeholderTextColor={colors.textSecondary}
-                    autoCapitalize="characters"
-                  />
+              {auto.inputMode === 'manual' && (
+                <>
+                  {/* Aandrijving Dropdown */}
+                  <Text style={styles.inputLabel}>Aandrijving</Text>
                   <TouchableOpacity
-                    style={styles.searchButton}
-                    onPress={() => fetchFuelData(kenteken2, setAandrijving2, setVerbruik2, setLoading2, setDataRetrieved2)}
-                    disabled={loading2}
+                    style={styles.dropdownButton}
+                    onPress={() => updateAuto(auto.id, { showDropdown: true })}
                   >
-                    {loading2 ? (
-                      <ActivityIndicator color={colors.background} size="small" />
-                    ) : (
-                      <Text style={styles.searchButtonText}>🔍</Text>
-                    )}
+                    <Text style={styles.dropdownButtonText}>{auto.aandrijving}</Text>
+                    <Text style={styles.dropdownArrow}>▼</Text>
                   </TouchableOpacity>
-                </View>
-                
-                {/* Opgehaalde gegevens - alleen zichtbaar na het ophalen */}
-                {dataRetrieved2 && (
-                  <>
-                    <Text style={styles.inputLabel}>Aandrijving</Text>
-                    <View style={styles.retrievedDataField}>
-                      <Text style={styles.retrievedDataText}>
-                        {aandrijving2}
-                      </Text>
-                    </View>
-                    
-                    <Text style={styles.inputLabel}>{getVerbruikLabel(aandrijving2)}</Text>
-                    <View style={styles.retrievedDataField}>
-                      <Text style={styles.retrievedDataText}>
-                        {verbruik2}
-                      </Text>
-                    </View>
-                  </>
-                )}
-              </>
-            )}
 
-            {/* Prijs Input - alleen zichtbaar na het ophalen van gegevens of bij handmatige invoer */}
-            {(inputMode2 === 'manual' || (inputMode2 === 'kenteken' && dataRetrieved2)) && (
-              <>
-                <Text style={styles.inputLabel}>{getPrijsLabel(aandrijving2)}</Text>
-                <TextInput
-                  style={styles.input}
-                  value={prijs2}
-                  onChangeText={setPrijs2}
-                  placeholder={getPrijsPlaceholder(aandrijving2)}
-                  placeholderTextColor={colors.textSecondary}
-                  keyboardType="numeric"
-                />
-              </>
-            )}
+
+
+                  {/* Verbruik Input */}
+                  <Text style={styles.inputLabel}>{getVerbruikLabel(auto.aandrijving)}</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={auto.verbruik}
+                    onChangeText={(value) => updateAuto(auto.id, { verbruik: value })}
+                    placeholder={`Bijv. ${auto.aandrijving === 'Elektrisch' ? '15' : '6.5'}`}
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="numeric"
+                  />
+                </>
+              )}
+
+              {auto.inputMode === 'kenteken' && (
+                <>
+                  {/* Kenteken Input */}
+                  <Text style={styles.inputLabel}>Kenteken</Text>
+                  <View style={styles.kentekenContainer}>
+                    <TextInput
+                      style={[styles.input, { flex: 1, marginRight: 10 }]}
+                      value={auto.kenteken}
+                      onChangeText={(value) => updateAuto(auto.id, { kenteken: value })}
+                      placeholder="Bijv. AB-12-CD"
+                      placeholderTextColor={colors.textSecondary}
+                      autoCapitalize="characters"
+                    />
+                    <TouchableOpacity
+                      style={styles.searchButton}
+                      onPress={() => fetchVehicleData(auto.id)}
+                      disabled={auto.loading}
+                    >
+                      {auto.loading ? (
+                        <ActivityIndicator color={colors.background} size="small" />
+                      ) : (
+                        <Text style={styles.searchButtonText}>🔍</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                  
+                  {/* Opgehaalde gegevens - alleen zichtbaar na het ophalen */}
+                  {auto.dataRetrieved && (
+                    <>
+                      <Text style={styles.inputLabel}>Aandrijving</Text>
+                      <View style={styles.retrievedDataField}>
+                        <Text style={styles.retrievedDataText}>
+                          {auto.aandrijving}
+                        </Text>
+                      </View>
+
+
+                      
+                      <Text style={styles.inputLabel}>{getVerbruikLabel(auto.aandrijving)}</Text>
+                      <View style={styles.retrievedDataField}>
+                        <Text style={styles.retrievedDataText}>
+                          {auto.verbruik}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* Prijs Input - alleen zichtbaar na het ophalen van gegevens of bij handmatige invoer */}
+              {(auto.inputMode === 'manual' || (auto.inputMode === 'kenteken' && auto.dataRetrieved)) && (
+                <>
+                  <Text style={styles.inputLabel}>{getPrijsLabel(auto.aandrijving)}</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={auto.prijs}
+                    onChangeText={(value) => updateAuto(auto.id, { prijs: value })}
+                    placeholder={getPrijsPlaceholder(auto.aandrijving)}
+                    placeholderTextColor={colors.textSecondary}
+                    keyboardType="numeric"
+                  />
+                </>
+              )}
+            </View>
           </View>
-        </View>
+        ))}
 
-        {/* Bereken Knop - alleen zichtbaar als alle benodigde velden zijn ingevuld */}
-        {inputMode1 && inputMode2 && 
-         ((inputMode1 === 'manual' && verbruik1 && prijs1) || 
-          (inputMode1 === 'kenteken' && dataRetrieved1 && verbruik1 && prijs1)) &&
-         ((inputMode2 === 'manual' && verbruik2 && prijs2) || 
-          (inputMode2 === 'kenteken' && dataRetrieved2 && verbruik2 && prijs2)) && (
-          <TouchableOpacity
-            style={styles.berekenKnop}
-            onPress={berekenKosten}
-          >
-            <Text style={styles.berekenKnopText}>
-              Bereken Jaarlijkse Kosten
-            </Text>
-          </TouchableOpacity>
-        )}
+        {/* Auto Toevoegen Knop */}
+        <TouchableOpacity
+          style={styles.autoToevoegenKnop}
+          onPress={addAuto}
+        >
+          <Text style={styles.autoToevoegenKnopText}>
+            + Auto Toevoegen
+          </Text>
+        </TouchableOpacity>
 
-        {/* Dropdown Modals */}
-        <Dropdown
-          visible={showDropdown1}
-          onClose={() => setShowDropdown1(false)}
-          options={aandrijvingOpties}
-          onSelect={setAandrijving1}
-          selectedValue={aandrijving1}
-        />
+        {/* Bereken Knop - altijd zichtbaar, styling afhankelijk van of alles ingevuld is */}
+        <TouchableOpacity
+          style={isFormComplete() ? styles.berekenKnop : styles.berekenKnopDisabled}
+          onPress={berekenKosten}
+        >
+          <Text style={isFormComplete() ? styles.berekenKnopText : styles.berekenKnopTextDisabled}>
+            Bereken Jaarlijkse Kosten
+          </Text>
+        </TouchableOpacity>
 
-        <Dropdown
-          visible={showDropdown2}
-          onClose={() => setShowDropdown2(false)}
-          options={aandrijvingOpties}
-          onSelect={setAandrijving2}
-          selectedValue={aandrijving2}
-        />
+        {/* Dynamische Dropdown Modals */}
+        {autos.map((auto) => (
+          <Dropdown
+            key={`dropdown-${auto.id}`}
+            visible={auto.showDropdown}
+            onClose={() => updateAuto(auto.id, { showDropdown: false })}
+            options={aandrijvingOpties}
+            onSelect={(value) => updateAuto(auto.id, { aandrijving: value })}
+            selectedValue={auto.aandrijving}
+          />
+        ))}
+
+
       </ScrollView>
     </SafeAreaView>
   );
