@@ -9,11 +9,13 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../context/ThemeContext';
-import { buildRDWQuery, buildDefectsQuery, buildFuelsQuery, getRDWHeaders } from '../config/api';
+import { buildRDWQuery, buildDefectsQuery, buildFuelsQuery, buildDefectCodesQuery, getRDWHeaders } from '../config/api';
 import { addApkToCalendar } from '../utils/calendar';
 
 const KentekenCheckScreen = () => {
@@ -23,7 +25,10 @@ const KentekenCheckScreen = () => {
   const [vehicleData, setVehicleData] = useState(null);
   const [defectsData, setDefectsData] = useState(null);
   const [fuelsData, setFuelsData] = useState(null);
+  const [defectCodesData, setDefectCodesData] = useState(null);
   const [recentSearches, setRecentSearches] = useState([]);
+  const [showBuyingInfoOverlay, setShowBuyingInfoOverlay] = useState(false);
+  const [showDefectsOverlay, setShowDefectsOverlay] = useState(false);
 
   const styles = StyleSheet.create({
     container: {
@@ -57,6 +62,7 @@ const KentekenCheckScreen = () => {
       backgroundColor: colors.card,
       borderRadius: 12,
       padding: 20,
+      paddingRight: 60, // Space for search icon
       marginBottom: 16,
       borderWidth: 2,
       borderColor: colors.border,
@@ -66,6 +72,21 @@ const KentekenCheckScreen = () => {
       letterSpacing: 2,
       color: colors.text,
       textTransform: 'uppercase',
+    },
+    inputContainer: {
+      position: 'relative',
+      marginBottom: -10,
+    },
+    searchIcon: {
+      position: 'absolute',
+      right: 20,
+      top: '50%',
+      transform: [{ translateY: -12 }],
+      zIndex: 1,
+      marginTop: -5,
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: 24,
     },
     searchButton: {
       backgroundColor: colors.primary,
@@ -164,7 +185,10 @@ const KentekenCheckScreen = () => {
       backgroundColor: colors.error || '#FF4444',
       borderRadius: 8,
       padding: 8,
-      marginTop: 8,
+      justifyContent: 'center',
+      alignItems: 'center',
+      minHeight: 32,
+      marginTop: -10,
     },
     clearRecentButtonText: {
       color: colors.background,
@@ -232,6 +256,120 @@ const KentekenCheckScreen = () => {
       color: '#1976D2',
       marginBottom: 16,
     },
+    // Overlay styling
+    overlayContainer: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center', // Center vertically
+      alignItems: 'center',
+    },
+    overlayContent: {
+      backgroundColor: colors.background,
+      borderRadius: 16,
+      padding: 20,
+      marginVertical: 5, // Very small margin top and bottom
+      marginHorizontal: 10, // Small margin left and right
+      height: '90%', // Perfect height - not too big, not too small
+      width: '95%', // Keep wide width
+      minHeight: 500, // Increased minimum height
+    },
+    overlayHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    overlayTitle: {
+      fontSize: 24,
+      fontWeight: 'bold',
+      color: colors.text,
+      flex: 1,
+    },
+    closeButton: {
+      padding: 8,
+    },
+    closeButtonText: {
+      fontSize: 24,
+      color: colors.textSecondary,
+      fontWeight: 'bold',
+    },
+    overlayScrollView: {
+      flex: 1,
+      minHeight: 100, // Ensure scrollview has minimum height
+      maxHeight: '100%', // Use all available height
+    },
+    // Action buttons styling
+    actionButtonsContainer: {
+      marginTop: 20,
+    },
+    actionButton: {
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      padding: 16,
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    actionButtonText: {
+      color: colors.background,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    // Defects styling with timeline
+    defectItem: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      position: 'relative',
+      marginLeft: 20, // Space for timeline
+    },
+    timelineLine: {
+      position: 'absolute',
+      left: -10,
+      top: 0,
+      bottom: 0,
+      width: 2,
+      backgroundColor: colors.primary,
+    },
+    timelineDot: {
+      position: 'absolute',
+      left: -16,
+      top: 20,
+      width: 12,
+      height: 12,
+      borderRadius: 6,
+      backgroundColor: colors.primary,
+      borderWidth: 2,
+      borderColor: colors.background,
+    },
+    defectDate: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 12,
+      marginLeft: 8, // Space from timeline
+    },
+    defectCode: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      marginBottom: 4,
+      marginLeft: 8, // Space from timeline
+    },
+    defectDescription: {
+      fontSize: 16,
+      color: colors.text,
+      fontWeight: '500',
+      marginLeft: 8, // Space from timeline
+    },
+    noDefectsText: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      fontStyle: 'italic',
+      marginTop: 20,
+    },
   });
 
   const formatKenteken = (text) => {
@@ -296,6 +434,41 @@ const KentekenCheckScreen = () => {
   const handleKentekenChange = (text) => {
     const formatted = formatKenteken(text);
     setKenteken(formatted);
+  };
+
+  // Load defect codes on component mount
+  useEffect(() => {
+    loadDefectCodes();
+  }, []);
+
+  const loadDefectCodes = async () => {
+    try {
+      const defectCodesQueryUrl = buildDefectCodesQuery();
+      console.log('Defect Codes Query URL:', defectCodesQueryUrl);
+      
+      const defectCodesResponse = await fetch(defectCodesQueryUrl, {
+        method: 'GET',
+        headers: getRDWHeaders(),
+      });
+      
+      if (defectCodesResponse.ok) {
+        const defectCodesData = await defectCodesResponse.json();
+        console.log('Defect codes response data length:', defectCodesData.length);
+        
+        // Create a lookup object for faster access
+        const defectCodesLookup = {};
+        defectCodesData.forEach(code => {
+          if (code.gebrek_identificatie) {
+            defectCodesLookup[code.gebrek_identificatie] = code.gebrek_omschrijving;
+          }
+        });
+        
+        setDefectCodesData(defectCodesLookup);
+        console.log('Defect codes lookup created with', Object.keys(defectCodesLookup).length, 'codes');
+      }
+    } catch (error) {
+      console.error('Error fetching defect codes:', error);
+    }
   };
 
   const searchVehicle = async () => {
@@ -367,9 +540,11 @@ const KentekenCheckScreen = () => {
           if (defectsResponse.ok) {
             const defectsData = await defectsResponse.json();
             console.log('Defects response data:', defectsData);
-            if (defectsData && defectsData.length > 0) {
-              setDefectsData(defectsData[0]);
-            }
+            console.log('Defects data length:', defectsData ? defectsData.length : 0);
+            setDefectsData(defectsData || []);
+          } else {
+            console.error('Defects response not ok:', defectsResponse.status);
+            setDefectsData([]);
           }
         } catch (defectsError) {
           console.error('Error fetching defects data:', defectsError);
@@ -555,6 +730,109 @@ const KentekenCheckScreen = () => {
     addApkToCalendar(date, title, description);
   };
 
+  // Helper function to get defect description from code
+  const getDefectDescription = (defectCode) => {
+    console.log('getDefectDescription called with:', defectCode);
+    console.log('defectCodesData available:', !!defectCodesData);
+    console.log('defectCodesData keys count:', defectCodesData ? Object.keys(defectCodesData).length : 0);
+    
+    if (!defectCodesData || !defectCode) {
+      console.log('Returning default description');
+      return 'Onbekende gebreken';
+    }
+    
+    const description = defectCodesData[defectCode];
+    console.log('Found description for code', defectCode, ':', description);
+    
+    return description || `Gebreken ${defectCode}`;
+  };
+
+  // Helper function to format defect date
+  const formatDefectDate = (dateString) => {
+    if (!dateString) return 'Onbekende datum';
+    
+    try {
+      let date;
+      if (typeof dateString === 'string') {
+        if (dateString.includes('T')) {
+          // ISO format: "2024-10-25T00:00:00.000"
+          date = new Date(dateString);
+        } else if (dateString.includes('-')) {
+          // Date format: "2024-10-25"
+          date = new Date(dateString + 'T00:00:00');
+        } else if (dateString.length === 8 && /^\d{8}$/.test(dateString)) {
+          // Format: "20241025" -> "25/10/2024"
+          const year = dateString.substring(0, 4);
+          const month = dateString.substring(4, 6);
+          const day = dateString.substring(6, 8);
+          return `${day}/${month}/${year}`;
+        } else {
+          date = new Date(dateString);
+        }
+      } else {
+        date = new Date(dateString);
+      }
+      
+      if (isNaN(date.getTime())) {
+        return 'Ongeldige datum';
+      }
+      
+      return date.toLocaleDateString('nl-NL');
+    } catch (error) {
+      return 'Ongeldige datum';
+    }
+  };
+
+  // Helper function to group defects by date
+  const groupDefectsByDate = (defects) => {
+    if (!defects || !Array.isArray(defects)) {
+      console.log('groupDefectsByDate: defects is not an array:', defects);
+      return [];
+    }
+    
+    console.log('groupDefectsByDate: processing', defects.length, 'defects');
+    
+    const grouped = {};
+    defects.forEach((defect, index) => {
+      console.log(`Defect ${index}:`, defect);
+      const date = defect.meld_datum_door_keuringsinstantie;
+      console.log(`Defect ${index} date:`, date);
+      console.log(`Defect ${index} formatted date:`, formatDefectDate(date));
+      if (date) {
+        if (!grouped[date]) {
+          grouped[date] = [];
+        }
+        grouped[date].push(defect);
+      }
+    });
+    
+    console.log('Grouped defects:', grouped);
+    
+    // Convert to array and sort by date (newest first)
+    const result = Object.entries(grouped)
+      .sort(([dateA], [dateB]) => {
+        // Parse YYYYMMDD format for comparison
+        const parseDate = (dateStr) => {
+          if (dateStr && dateStr.length === 8 && /^\d{8}$/.test(dateStr)) {
+            const year = parseInt(dateStr.substring(0, 4));
+            const month = parseInt(dateStr.substring(4, 6));
+            const day = parseInt(dateStr.substring(6, 8));
+            return new Date(year, month - 1, day); // month - 1 because JS months are 0-based
+          }
+          return new Date(dateStr);
+        };
+        
+        const dateA_parsed = parseDate(dateA);
+        const dateB_parsed = parseDate(dateB);
+        
+        return dateB_parsed - dateA_parsed; // Newest first
+      })
+      .map(([date, defects]) => ({ date, defects }));
+    
+    console.log('Final grouped result:', result);
+    return result;
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView 
@@ -571,35 +849,87 @@ const KentekenCheckScreen = () => {
 
         {/* Input Section */}
         <View style={styles.inputSection}>
-          <TextInput
-            style={styles.kentekenInput}
-            value={kenteken}
-            onChangeText={handleKentekenChange}
-            placeholder="Kenteken"
-            placeholderTextColor={colors.textSecondary}
-            maxLength={10}
-            autoCapitalize="characters"
-            autoCorrect={false}
-          />
+          {vehicleData ? (
+            // Toon zoek icoontje in invoerveld wanneer resultaten beschikbaar zijn
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.kentekenInput}
+                value={kenteken}
+                onChangeText={handleKentekenChange}
+                placeholder="Kenteken"
+                placeholderTextColor={colors.textSecondary}
+                maxLength={10}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              <TouchableOpacity 
+                style={styles.searchIcon}
+                onPress={searchVehicle}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color={colors.primary} size="small" />
+                ) : (
+                  <Ionicons name="search" size={24} color={colors.primary} />
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            // Toon normale invoerveld en zoeken knop op eerste pagina
+            <>
+              <TextInput
+                style={[styles.kentekenInput, { paddingRight: 20 }]}
+                value={kenteken}
+                onChangeText={handleKentekenChange}
+                placeholder="Kenteken"
+                placeholderTextColor={colors.textSecondary}
+                maxLength={10}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              
+              <TouchableOpacity 
+                style={styles.searchButton}
+                onPress={searchVehicle}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color={colors.background} />
+                ) : (
+                  <Text style={styles.searchButtonText}>Zoeken</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* Action Buttons - Only show when vehicle data is available */}
+          {vehicleData && (
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => setShowBuyingInfoOverlay(true)}
+              >
+                <Text style={styles.actionButtonText}>Handige koop informatie</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.actionButton}
+                onPress={() => setShowDefectsOverlay(true)}
+              >
+                <Text style={styles.actionButtonText}>Gemelde gebreken</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           
-          <TouchableOpacity 
-            style={styles.searchButton}
-            onPress={searchVehicle}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.background} />
-            ) : (
-              <Text style={styles.searchButtonText}>Zoeken</Text>
-            )}
-          </TouchableOpacity>
+        
+      
         </View>
 
         {/* Recent Searches Section */}
         {recentSearches.length > 0 && !vehicleData && (
           <View style={styles.recentSearchesSection}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <Text style={styles.sectionTitle}>Laatste gezochte kentekens</Text>
+              <Text style={styles.sectionTitle}>Recent bekeken</Text>
               <TouchableOpacity
                 style={styles.clearRecentButton}
                 onPress={clearRecentSearches}
@@ -827,67 +1157,6 @@ const KentekenCheckScreen = () => {
               </View>
             </View>
 
-            {/* Handige informatie bij kopen */}
-            <View style={styles.buyingInfoCard}>
-              <Text style={styles.buyingInfoTitle}>Handige informatie bij kopen</Text>
-              
-              <View style={styles.buyingInfoRow}>
-                <Text style={styles.buyingInfoLabel}>Jaar laatste registratie tellerstand:</Text>
-                <Text style={styles.buyingInfoValue}>
-                  {vehicleData.jaar_laatste_registratie_tellerstand || 'Niet beschikbaar'}
-                </Text>
-              </View>
-              
-              <View style={styles.buyingInfoRow}>
-                <Text style={styles.buyingInfoLabel}>Tellerstandoordeel:</Text>
-                <Text style={styles.buyingInfoValue}>
-                  {vehicleData.tellerstandoordeel || 'Niet beschikbaar'}
-                </Text>
-              </View>
-              
-              <View style={styles.buyingInfoRow}>
-                <Text style={styles.buyingInfoLabel}>Export indicator:</Text>
-                <Text style={styles.buyingInfoValue}>
-                  {vehicleData.export_indicator || 'Niet beschikbaar'}
-                </Text>
-              </View>
-              
-              <View style={styles.buyingInfoRow}>
-                <Text style={styles.buyingInfoLabel}>Plaats chassisnummer:</Text>
-                <Text style={styles.buyingInfoValue}>
-                  {vehicleData.plaats_chassisnummer || 'Niet beschikbaar'}
-                </Text>
-              </View>
-              
-              <View style={styles.buyingInfoRow}>
-                <Text style={styles.buyingInfoLabel}>Wacht op keuren:</Text>
-                <Text style={styles.buyingInfoValue}>
-                  {vehicleData.wacht_op_keuren || 'Niet beschikbaar'}
-                </Text>
-              </View>
-              
-              <View style={styles.buyingInfoRow}>
-                <Text style={styles.buyingInfoLabel}>Bruto BPM:</Text>
-                <Text style={styles.buyingInfoValue}>
-                  {vehicleData.bruto_bpm ? `€${parseInt(vehicleData.bruto_bpm).toLocaleString('nl-NL')}` : 'Niet beschikbaar'}
-                </Text>
-              </View>
-              
-              <View style={styles.buyingInfoRow}>
-                <Text style={styles.buyingInfoLabel}>Netto BPM:</Text>
-                <Text style={styles.buyingInfoValue}>
-                  {vehicleData.netto_bpm ? `€${parseInt(vehicleData.netto_bpm).toLocaleString('nl-NL')}` : 'Niet beschikbaar'}
-                </Text>
-              </View>
-              
-              <View style={styles.buyingInfoRow}>
-                <Text style={styles.buyingInfoLabel}>BPM tarief:</Text>
-                <Text style={styles.buyingInfoValue}>
-                  {vehicleData.bpm_tarief || 'Niet beschikbaar'}
-                </Text>
-              </View>
-            </View>
-
             {/* Nieuwe zoekopdracht knop */}
             <TouchableOpacity 
               style={styles.newSearchButton}
@@ -897,6 +1166,162 @@ const KentekenCheckScreen = () => {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Buying Info Overlay */}
+        <Modal
+          visible={showBuyingInfoOverlay}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowBuyingInfoOverlay(false)}
+        >
+
+          <View style={styles.overlayContainer}>
+            <View style={styles.overlayContent}>
+              <View style={styles.overlayHeader}>
+                <Text style={styles.overlayTitle}>Handige informatie bij kopen</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowBuyingInfoOverlay(false)}
+                >
+                  <Text style={styles.closeButtonText}>×</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.overlayScrollView} showsVerticalScrollIndicator={false}>
+                {vehicleData ? (
+                  <View style={styles.buyingInfoCard}>
+                    <View style={styles.buyingInfoRow}>
+                      <Text style={styles.buyingInfoLabel}>Jaar laatste registratie tellerstand:</Text>
+                      <Text style={styles.buyingInfoValue}>
+                        {vehicleData.jaar_laatste_registratie_tellerstand || 'Niet beschikbaar'}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.buyingInfoRow}>
+                      <Text style={styles.buyingInfoLabel}>Tellerstandoordeel:</Text>
+                      <Text style={styles.buyingInfoValue}>
+                        {vehicleData.tellerstandoordeel || 'Niet beschikbaar'}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.buyingInfoRow}>
+                      <Text style={styles.buyingInfoLabel}>Export indicator:</Text>
+                      <Text style={styles.buyingInfoValue}>
+                        {vehicleData.export_indicator || 'Niet beschikbaar'}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.buyingInfoRow}>
+                      <Text style={styles.buyingInfoLabel}>Plaats chassisnummer:</Text>
+                      <Text style={styles.buyingInfoValue}>
+                        {vehicleData.plaats_chassisnummer || 'Niet beschikbaar'}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.buyingInfoRow}>
+                      <Text style={styles.buyingInfoLabel}>Wacht op keuren:</Text>
+                      <Text style={styles.buyingInfoValue}>
+                        {vehicleData.wacht_op_keuren || 'Niet beschikbaar'}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.buyingInfoRow}>
+                      <Text style={styles.buyingInfoLabel}>Bruto BPM:</Text>
+                      <Text style={styles.buyingInfoValue}>
+                        {vehicleData.bruto_bpm ? `€${parseInt(vehicleData.bruto_bpm).toLocaleString('nl-NL')}` : 'Niet beschikbaar'}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.buyingInfoRow}>
+                      <Text style={styles.buyingInfoLabel}>Netto BPM:</Text>
+                      <Text style={styles.buyingInfoValue}>
+                        {vehicleData.netto_bpm ? `€${parseInt(vehicleData.netto_bpm).toLocaleString('nl-NL')}` : 'Niet beschikbaar'}
+                      </Text>
+                    </View>
+                    
+                    <View style={styles.buyingInfoRow}>
+                      <Text style={styles.buyingInfoLabel}>BPM tarief:</Text>
+                      <Text style={styles.buyingInfoValue}>
+                        {vehicleData.bpm_tarief || 'Niet beschikbaar'}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <Text style={styles.noDataText}>
+                    Geen voertuiggegevens beschikbaar.
+                  </Text>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Defects Overlay */}
+        <Modal
+          visible={showDefectsOverlay}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowDefectsOverlay(false)}
+        >
+
+          <View style={styles.overlayContainer}>
+            <View style={styles.overlayContent}>
+              <View style={styles.overlayHeader}>
+                <Text style={styles.overlayTitle}>Geconstateerde gebreken voor {kenteken}</Text>
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setShowDefectsOverlay(false)}
+                >
+                  <Text style={styles.closeButtonText}>×</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.overlayScrollView} showsVerticalScrollIndicator={false}>
+                {defectsData && Array.isArray(defectsData) && defectsData.length > 0 ? (
+                  <View>
+                    <Text style={[styles.noDefectsText, { fontSize: 12, marginBottom: 10 }]}>
+                      Debug: Found {defectsData.length} defects, first defect keys: {defectsData[0] ? Object.keys(defectsData[0]).join(', ') : 'none'}
+                    </Text>
+                    {defectsData[0] && (
+                      <Text style={[styles.noDefectsText, { fontSize: 12, marginBottom: 10 }]}>
+                        Sample defect: gebrek_identificatie={defectsData[0].gebrek_identificatie}, meld_datum={defectsData[0].meld_datum_door_keuringsinstantie}
+                      </Text>
+                    )}
+                    {groupDefectsByDate(defectsData).map((group, groupIndex) => (
+                      <View key={groupIndex} style={styles.defectItem}>
+                        <View style={styles.timelineLine} />
+                        <View style={styles.timelineDot} />
+                        <Text style={styles.defectDate}>{formatDefectDate(group.date)}</Text>
+                        {group.defects.map((defect, defectIndex) => (
+                          <View key={defectIndex} style={{ marginBottom: defectIndex < group.defects.length - 1 ? 12 : 0 }}>
+                            <Text style={styles.defectCode}>Gebreken: {defect.gebrek_identificatie}</Text>
+                            <Text style={styles.defectDescription}>
+                              {getDefectDescription(defect.gebrek_identificatie)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View>
+                    <Text style={styles.noDefectsText}>
+                      Geen gebreken geconstateerd bij (APK) keuring of verplicht onderhoud.
+                    </Text>
+                    <Text style={[styles.noDefectsText, { fontSize: 12, marginTop: 10 }]}>
+                      Debug: defectsData type: {typeof defectsData}, length: {defectsData ? defectsData.length : 'null'}
+                    </Text>
+                    {defectsData && Array.isArray(defectsData) && defectsData.length === 0 && (
+                      <Text style={[styles.noDefectsText, { fontSize: 12, marginTop: 5 }]}>
+                        Array is empty - no defects found for this kenteken
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </SafeAreaView>
   );

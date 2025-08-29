@@ -11,6 +11,7 @@ export const RDW_ENDPOINTS = {
   VEHICLES: `${RDW_API_CONFIG.BASE_URL}/${RDW_API_CONFIG.DATASET_ID}.json`,
   DEFECTS: `${RDW_API_CONFIG.BASE_URL}/a34c-vvps.json`,
   FUELS: `${RDW_API_CONFIG.BASE_URL}/8ys7-d773.json`,
+  DEFECT_CODES: `${RDW_API_CONFIG.BASE_URL}/hx2c-gt7k.json`,
 };
 
 // Helper function to build query URL
@@ -22,7 +23,7 @@ export const buildRDWQuery = (kenteken) => {
 
 // Helper function to build defects query URL
 export const buildDefectsQuery = (kenteken) => {
-  const query = `?$where=kenteken='${kenteken.toUpperCase()}'`;
+  const query = `?$where=kenteken='${kenteken.toUpperCase()}'&$order=meld_datum_door_keuringsinstantie DESC&$limit=100`;
   return `${RDW_ENDPOINTS.DEFECTS}${query}`;
 };
 
@@ -30,6 +31,11 @@ export const buildDefectsQuery = (kenteken) => {
 export const buildFuelsQuery = (kenteken) => {
   const query = `?$where=kenteken='${kenteken.toUpperCase()}'`;
   return `${RDW_ENDPOINTS.FUELS}${query}`;
+};
+
+// Helper function to build defect codes query URL
+export const buildDefectCodesQuery = () => {
+  return `${RDW_ENDPOINTS.DEFECT_CODES}`;
 };
 
 // Helper function to get headers with app token for higher rate limits
