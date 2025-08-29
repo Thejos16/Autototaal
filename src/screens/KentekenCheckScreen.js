@@ -444,15 +444,14 @@ const KentekenCheckScreen = () => {
     setKenteken(formatted);
   };
 
-  // Load defect codes on component mount
+  // Load defect codes only once when app starts
   useEffect(() => {
     loadDefectCodes();
-  }, []);
+  }, []); // Empty dependency array = only run once
 
   const loadDefectCodes = async () => {
     try {
       const defectCodesQueryUrl = buildDefectCodesQuery();
-      console.log('Defect Codes Query URL:', defectCodesQueryUrl);
       
       const defectCodesResponse = await fetch(defectCodesQueryUrl, {
         method: 'GET',
@@ -461,7 +460,6 @@ const KentekenCheckScreen = () => {
       
       if (defectCodesResponse.ok) {
         const defectCodesData = await defectCodesResponse.json();
-        console.log('Defect codes response data length:', defectCodesData.length);
         
         // Create a lookup object for faster access
         const defectCodesLookup = {};
@@ -472,7 +470,7 @@ const KentekenCheckScreen = () => {
         });
         
         setDefectCodesData(defectCodesLookup);
-        console.log('Defect codes lookup created with', Object.keys(defectCodesLookup).length, 'codes');
+        console.log('Defect codes loaded:', Object.keys(defectCodesLookup).length, 'codes');
       }
     } catch (error) {
       console.error('Error fetching defect codes:', error);
@@ -492,17 +490,25 @@ const KentekenCheckScreen = () => {
 
     try {
       const cleanKenteken = kenteken.replace(/-/g, '');
-      
-      // Fetch vehicle data
-      const vehicleQueryUrl = buildRDWQuery(cleanKenteken);
       console.log('Searching for kenteken:', cleanKenteken);
-      console.log('Vehicle Query URL:', vehicleQueryUrl);
       
-      const vehicleResponse = await fetch(vehicleQueryUrl, {
-        method: 'GET',
-        headers: getRDWHeaders(),
-      });
+      // Fetch ALL data in parallel for maximum efficiency
+      const [vehicleResponse, defectsResponse, fuelsResponse] = await Promise.all([
+        fetch(buildRDWQuery(cleanKenteken), {
+          method: 'GET',
+          headers: getRDWHeaders(),
+        }),
+        fetch(buildDefectsQuery(cleanKenteken), {
+          method: 'GET',
+          headers: getRDWHeaders(),
+        }),
+        fetch(buildFuelsQuery(cleanKenteken), {
+          method: 'GET',
+          headers: getRDWHeaders(),
+        })
+      ]);
 
+      // Check vehicle response first (main data)
       if (!vehicleResponse.ok) {
         const errorText = await vehicleResponse.text();
         console.error('Vehicle response error text:', errorText);
@@ -516,67 +522,29 @@ const KentekenCheckScreen = () => {
         console.log('Found vehicle data:', vehicleData[0]);
         console.log('Available fields:', Object.keys(vehicleData[0]));
         
-        // Debug: Log specifieke velden voor koopinformatie
-        const buyingInfoFields = [
-          'jaar_laatste_registratie_tellerstand',
-          'tellerstandoordeel', 
-          'export_indicator',
-          'plaats_chassisnummer',
-          'wacht_op_keuren',
-          'bruto_bpm',
-          'netto_bpm',
-          'bpm_tarief'
-        ];
-        
-        console.log('Buying info fields:');
-        buyingInfoFields.forEach(field => {
-          console.log(`${field}:`, vehicleData[0][field]);
-        });
-        
+        // Set vehicle data immediately
         setVehicleData(vehicleData[0]);
         
-        // Fetch defects data
-        try {
-          const defectsQueryUrl = buildDefectsQuery(cleanKenteken);
-          console.log('Defects Query URL:', defectsQueryUrl);
-          
-          const defectsResponse = await fetch(defectsQueryUrl, {
-            method: 'GET',
-            headers: getRDWHeaders(),
-          });
-          
-          if (defectsResponse.ok) {
-            const defectsData = await defectsResponse.json();
-            console.log('Defects response data:', defectsData);
-            console.log('Defects data length:', defectsData ? defectsData.length : 0);
-            setDefectsData(defectsData || []);
-          } else {
-            console.error('Defects response not ok:', defectsResponse.status);
-            setDefectsData([]);
-          }
-        } catch (defectsError) {
-          console.error('Error fetching defects data:', defectsError);
+        // Process defects data
+        if (defectsResponse.ok) {
+          const defectsData = await defectsResponse.json();
+          console.log('Defects response data:', defectsData);
+          console.log('Defects data length:', defectsData ? defectsData.length : 0);
+          setDefectsData(defectsData || []);
+        } else {
+          console.error('Defects response not ok:', defectsResponse.status);
+          setDefectsData([]);
         }
         
-        // Fetch fuels data
-        try {
-          const fuelsQueryUrl = buildFuelsQuery(cleanKenteken);
-          console.log('Fuels Query URL:', fuelsQueryUrl);
-          
-          const fuelsResponse = await fetch(fuelsQueryUrl, {
-            method: 'GET',
-            headers: getRDWHeaders(),
-          });
-          
-          if (fuelsResponse.ok) {
-            const fuelsData = await fuelsResponse.json();
-            console.log('Fuels response data:', fuelsData);
-            if (fuelsData && fuelsData.length > 0) {
-              setFuelsData(fuelsData[0]);
-            }
+        // Process fuels data
+        if (fuelsResponse.ok) {
+          const fuelsData = await fuelsResponse.json();
+          console.log('Fuels response data:', fuelsData);
+          if (fuelsData && fuelsData.length > 0) {
+            setFuelsData(fuelsData[0]);
           }
-        } catch (fuelsError) {
-          console.error('Error fetching fuels data:', fuelsError);
+        } else {
+          console.error('Fuels response not ok:', fuelsResponse.status);
         }
         
         // Sla de zoekopdracht op
