@@ -130,13 +130,19 @@ const KentekenCheckScreen = () => {
     infoLabel: {
       fontSize: 16,
       color: colors.textSecondary,
-      flex: 1,
+      flex: 0.65,
     },
     infoValue: {
       fontSize: 16,
       color: colors.text,
       fontWeight: '500',
-      flex: 2,
+      flex: 0.35,
+      textAlign: 'right',
+    },
+    infoValueText: {
+      fontSize: 16,
+      color: colors.text,
+      fontWeight: '500',
       textAlign: 'right',
     },
     newSearchButton: {
@@ -196,7 +202,7 @@ const KentekenCheckScreen = () => {
       fontWeight: '600',
     },
     buyingInfoCard: {
-      backgroundColor: '#00aa65',
+      backgroundColor: '#e8f5e8',
       borderRadius: 16,
       padding: 20,
       marginBottom: 16,
@@ -204,7 +210,6 @@ const KentekenCheckScreen = () => {
       borderColor: '#00aa65',
       borderLeftWidth: 4,
       borderLeftColor: '#00aa65',
-      backgroundColor: '#e8f5e8',
     },
     buyingInfoTitle: {
       fontSize: 20,
@@ -369,6 +374,9 @@ const KentekenCheckScreen = () => {
       textAlign: 'center',
       fontStyle: 'italic',
       marginTop: 20,
+    },
+    spacer: {
+      height: 16,
     },
   });
 
@@ -638,18 +646,63 @@ const KentekenCheckScreen = () => {
   };
 
   const formatHandelsbenaming = (merk, handelsbenaming) => {
-    if (!handelsbenaming) return merk || 'Niet beschikbaar';
-    if (!merk) return handelsbenaming;
+    if (!handelsbenaming) return formatBrandName(merk) || 'Niet beschikbaar';
+    if (!merk) return formatBrandName(handelsbenaming);
     
-    // Haal merknaam uit handelsbenaming als deze erin zit
-    const cleanMerk = merk.toLowerCase().trim();
-    const cleanHandelsbenaming = handelsbenaming.toLowerCase().trim();
+    console.log('=== DEBUG formatHandelsbenaming ===');
+    console.log('Original merk:', merk);
+    console.log('Original handelsbenaming:', handelsbenaming);
     
-    if (cleanHandelsbenaming.includes(cleanMerk)) {
-      return handelsbenaming;
+    // Normaliseer beide strings voor vergelijking
+    const normalizeString = (str) => {
+      return str.toLowerCase().trim().replace(/\s+/g, ' ');
+    };
+    
+    const normalizedMerk = normalizeString(merk);
+    const normalizedHandelsbenaming = normalizeString(handelsbenaming);
+    
+    console.log('Normalized merk:', normalizedMerk);
+    console.log('Normalized handelsbenaming:', normalizedHandelsbenaming);
+    
+    // Check of merk voorkomt in handelsbenaming
+    if (normalizedHandelsbenaming.includes(normalizedMerk)) {
+      // Verwijder merknaam uit handelsbenaming
+      const modelOnly = normalizedHandelsbenaming.replace(normalizedMerk, '').trim();
+      console.log('Model only after replace:', modelOnly);
+      
+      // Als er nog iets over is, formatteer het
+      if (modelOnly) {
+        const result = formatBrandName(modelOnly);
+        console.log('Final result:', result);
+        return result;
+      } else {
+        // Als er niets over is, toon alleen merk
+        const result = formatBrandName(merk);
+        console.log('Only merk result:', result);
+        return result;
+      }
     }
     
-    return `${merk} ${handelsbenaming}`;
+    // Als merk niet voorkomt in handelsbenaming, toon alleen handelsbenaming
+    // Dit is het geval bij Volvo waar handelsbenaming al alleen "V60" is
+    const result = formatBrandName(handelsbenaming);
+    console.log('Handelsbenaming only result:', result);
+    return result;
+  };
+
+  const formatBrandName = (brandName) => {
+    if (!brandName) return '';
+    
+    // Converteer naar lowercase en split op woorden
+    const words = brandName.toLowerCase().split(' ');
+    
+    // Capitalize eerste letter van elk woord
+    const formattedWords = words.map(word => {
+      if (word.length === 0) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    });
+    
+    return formattedWords.join(' ');
   };
 
   const calculateTotalPower = (vermogenMassarijklaar, massaRijklaar) => {
@@ -968,43 +1021,14 @@ const KentekenCheckScreen = () => {
           <View style={styles.resultsSection}>
             <Text style={styles.sectionTitle}>Voertuig Informatie</Text>
             
-            {/* Nieuwe API test velden */}
-            {(defectsData || fuelsData) && (
-              <View style={styles.segmentCard}>
-                <Text style={styles.segmentTitle}>API Test Resultaten</Text>
-                
-                {defectsData && (
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Meld tijd door keuringsinstantie:</Text>
-                    <Text style={styles.infoValue}>
-                      {defectsData.meld_tijd_door_keuringsinstantie || 'Niet beschikbaar'}
-                    </Text>
-                  </View>
-                )}
-                
-                {fuelsData && (
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Netto maximum vermogen:</Text>
-                    <Text style={styles.infoValue}>
-                      {fuelsData.nettomaximumvermogen ? `${fuelsData.nettomaximumvermogen} kW` : 'Niet beschikbaar'}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
             
             {/* Algemene voertuiginformatie */}
             <View style={styles.segmentCard}>
               <Text style={styles.segmentTitle}>Algemene voertuiginformatie</Text>
               
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Kenteken:</Text>
-                <Text style={styles.infoValue}>{vehicleData.kenteken}</Text>
-              </View>
-              
-              <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Merk:</Text>
-                <Text style={styles.infoValue}>{vehicleData.merk || 'Niet beschikbaar'}</Text>
+                <Text style={styles.infoValue}>{formatBrandName(vehicleData.merk) || 'Niet beschikbaar'}</Text>
               </View>
               
               <View style={styles.infoRow}>
@@ -1013,31 +1037,52 @@ const KentekenCheckScreen = () => {
                   {formatHandelsbenaming(vehicleData.merk, vehicleData.handelsbenaming)}
                 </Text>
               </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Catalogusprijs:</Text>
+                <Text style={styles.infoValue}>{formatPrice(vehicleData.catalogusprijs)}</Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Vermogen:</Text>
+                <View style={styles.infoValue}>
+                  {fuelsData && fuelsData.nettomaximumvermogen ? (
+                    <>
+                      <Text style={styles.infoValueText}>{Math.round(fuelsData.nettomaximumvermogen * 1.36)} PK</Text>
+                      <Text style={[styles.infoValueText, { fontSize: styles.infoValueText.fontSize * 0.9, fontWeight: 'normal' }]}>({Math.round(fuelsData.nettomaximumvermogen)} kW)</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.infoValueText}>Niet beschikbaar</Text>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.spacer} />
+              <View style={styles.spacer} />
               
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Voertuigsoort:</Text>
                 <Text style={styles.infoValue}>{vehicleData.voertuigsoort || 'Niet beschikbaar'}</Text>
               </View>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Eerste kleur:</Text>
-                <Text style={styles.infoValue}>{vehicleData.eerste_kleur || 'Niet beschikbaar'}</Text>
-              </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Inrichting:</Text>
                 <Text style={styles.infoValue}>{vehicleData.inrichting || 'Niet beschikbaar'}</Text>
               </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Aantal zitplaatsen:</Text>
                 <Text style={styles.infoValue}>{vehicleData.aantal_zitplaatsen || 'Niet beschikbaar'}</Text>
               </View>
               
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Catalogusprijs:</Text>
-                <Text style={styles.infoValue}>{formatPrice(vehicleData.catalogusprijs)}</Text>
+                <Text style={styles.infoLabel}>Kleur:</Text>
+                <Text style={styles.infoValue}>{vehicleData.eerste_kleur || 'Niet beschikbaar'}</Text>
               </View>
+              
+              {/* Witregel voor visuele scheiding */}
+              <View style={styles.spacer} />
+              <View style={styles.spacer} />
               
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Datum eerste toelating:</Text>
@@ -1071,17 +1116,6 @@ const KentekenCheckScreen = () => {
                 </Text>
               </View>
               
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Vermogen/massa rijklaar:</Text>
-                <Text style={styles.infoValue}>{formatPower(vehicleData.vermogen_massarijklaar)}</Text>
-              </View>
-              
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Totaal vermogen:</Text>
-                <Text style={styles.infoValue}>
-                  {calculateTotalPower(vehicleData.vermogen_massarijklaar, vehicleData.massa_rijklaar)}
-                </Text>
-              </View>
               
                                             <View style={styles.infoRow}>
                  <Text style={styles.infoLabel}>Max. trekkende massa geremd:</Text>
